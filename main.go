@@ -3,14 +3,21 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aashaybelekar/resumaze/internal/drive"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	jsonPath := "./secrets/client_secret_423643519548-tau2b80al0q8iqnj2ok1kl1njig800a6.apps.googleusercontent.com.json"
-	folderID := "1CPxLOE5VQtZfLUTuaJYsZJIAwoBmr8af" // the folder you shared with the service account
-	filePath := "./data/map.pdf"                    // the local file you want to upload
+	err := godotenv.Load("./secrets/.env")
+	if err != nil {
+		log.Fatalf("Failed loading env file: %v", err)
+	}
+
+	jsonPath := os.Getenv("AUTH_JSON_PATH")
+	folderID := os.Getenv("FOLDER_ID")
+	filePath := "./data/map.pdf" // the local file you want to upload
 
 	srv, err := drive.NewAuthDriveService(jsonPath)
 	if err != nil {

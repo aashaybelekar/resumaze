@@ -2,6 +2,7 @@ package drive
 
 import (
 	"os"
+	"path/filepath"
 
 	"google.golang.org/api/drive/v3"
 )
@@ -13,7 +14,7 @@ func UploadFile(srv *drive.Service, folderID, localFilePath string) (*drive.File
 	}
 	defer f.Close()
 
-	fileName := f.Name()
+	fileName := filepath.Base(f.Name())
 	driveFile := &drive.File{
 		Name:    fileName,
 		Parents: []string{folderID}, // specify the folder

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	// "github.com/aashaybelekar/resumaze/internal/drive"
+	pdb "github.com/aashaybelekar/resumaze/internal/db"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -67,5 +68,42 @@ func main() {
 		}
 		time.Sleep(time.Second)
 	}
+
+	err = pdb.InitDB(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Initialization Complete!")
+
+	succ, err := pdb.CreateStage(db, "Round 0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if succ {
+		fmt.Printf("Success Inserted Stage: %v", succ)
+	} else {
+		fmt.Println("Already Existed Stage")
+	}
+
+	succ, err = pdb.CreateJobRole(db, "AI")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if succ {
+		fmt.Printf("Success Inserted JobRole: %v", succ)
+	} else {
+		fmt.Println("Already Existed JobRole")
+	}
+
+	succ, err = pdb.CreateResume(db, 1, "AI", "Round 0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if succ {
+		fmt.Printf("Success Inserted Resume: %v", succ)
+	} else {
+		fmt.Println("Already Existed Resume")
+	}
+
 
 }

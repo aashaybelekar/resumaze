@@ -1,4 +1,4 @@
-package pdb
+package db
 
 import (
 	"database/sql"
@@ -49,7 +49,7 @@ func DeleteStage(db *sql.DB, stageName string) error {
 	}
 
 	// 3. Move application to Archive
-	_, err = db.Exec(`UPDATE application SET stage_id=$1 WHERE stage_id=$2`, archiveStageID, stageID)
+	_, err = db.Exec(`UPDATE application SET current_stage_id=$1 WHERE current_stage_id=$2`, archiveStageID, stageID)
 	if err != nil {
 		return fmt.Errorf("failed to move application to Archive: %v", err)
 	}
@@ -73,7 +73,7 @@ func MoveApplication(db *sql.DB, resumeID int, stageName string) (bool, error) {
 		return false, err
 	}
 
-	_, err = db.Exec(`UPDATE application SET stage_id=$1 WHERE id=$2`, stageID, resumeID)
+	_, err = db.Exec(`UPDATE application SET current_stage_id=$1 WHERE id=$2`, stageID, resumeID)
 	return true, err
 }
 
@@ -86,7 +86,7 @@ func CreateResume(db *sql.DB, resumeID int, jobRole string, stageName string) (b
 		return false, err
 	}
 	err = db.QueryRow(`SELECT id FROM stages WHERE name=$1`, stageName).Scan(&StageID)
-	if err!= nil {
+	if err != nil {
 		log.Fatal("Failed to get stage_id")
 		return false, err
 	}
@@ -110,11 +110,16 @@ func CreateJobRole(db *sql.DB, name string) (bool, error) {
 	return false, nil // Role already exists
 }
 
-
-func DeleteJobRole(db *sql.DB, roleID int) error {
+func DeleteJobRole(db *sql.DB, jobRole string) error {
 	// 1. Find Archive stage ID
+	var roleID int
+	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, jobRole).Scan(&roleID)
+	if err != nil {
+		log.Fatal("Failed to get job_id")
+		return err
+	}
 	var archiveStageID int
-	err := db.QueryRow(`SELECT id FROM stages WHERE name='Archive'`).Scan(&archiveStageID)
+	err = db.QueryRow(`SELECT id FROM stages WHERE name='Archive'`).Scan(&archiveStageID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Create Archive stage if not exists
@@ -132,7 +137,7 @@ func DeleteJobRole(db *sql.DB, roleID int) error {
 	}
 
 	// 2. Move application to Archive stage
-	_, err = db.Exec(`UPDATE application SET stage_id=$1 WHERE job_role_id=$2`, archiveStageID, roleID)
+	_, err = db.Exec(`UPDATE application SET current_stage_id=$1 WHERE job_role_id=$2`, archiveStageID, roleID)
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,25 @@ func CreateStage(db *sql.DB, name string) (bool, error) {
 	return false, nil // Stage already exists
 }
 
+func ListStages(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`SELECT name FROM stages`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stages []string
+	for rows.Next() {
+		var stage string
+		if err := rows.Scan(&stage); err != nil {
+			return nil, err
+		}
+		stages = append(stages, stage)
+	}
+
+	return stages, nil
+}
+
 func DeleteStage(db *sql.DB, stageName string) error {
 	// 1. Find stage ID
 	var stageID int
@@ -95,6 +114,30 @@ func CreateResume(db *sql.DB, resumeID int, jobRole string, stageName string) (b
 	return true, err
 }
 
+func ListResumes(db *sql.DB) ([][]string, error) {
+	rows, err := db.Query(` 
+		SELECT a.drive_file_id, j.name, s.name
+		FROM application a
+		LEFT JOIN job_roles j ON a.job_role_id = j.id
+		LEFT JOIN stages s ON a.current_stage_id = s.id;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resumes [][]string
+	for rows.Next() {
+		var driveFileID, jobName, stageName string
+		if err := rows.Scan(&driveFileID, &jobName, &stageName); err != nil {
+			return nil, err
+		}
+		resume := []string{driveFileID, jobName, stageName}
+		resumes = append(resumes, resume)
+	}
+
+	return resumes, nil
+}
+
 func CreateJobRole(db *sql.DB, name string) (bool, error) {
 	var id int
 	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, name).Scan(&id)
@@ -108,6 +151,25 @@ func CreateJobRole(db *sql.DB, name string) (bool, error) {
 		return false, err
 	}
 	return false, nil // Role already exists
+}
+
+func ListJobRole(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`SELECT name FROM job_roles`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
 }
 
 func DeleteJobRole(db *sql.DB, jobRole string) error {

@@ -4,11 +4,13 @@ import (
 	"database/sql"
 
 	"github.com/aashaybelekar/resumaze/internal/handlers"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter(db *sql.DB) *gin.Engine {
 	router := gin.Default()
+	router.Use(cors.Default())
 
 	api := router.Group("/api/v1")
 	{

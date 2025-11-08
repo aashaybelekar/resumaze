@@ -8,6 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func ListStagesHandler(c *gin.Context, dbClient *sql.DB) {
+	stages, err := db.ListStages(dbClient)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stages)
+}
+
 func CreateStageHandler(c *gin.Context, dbClient *sql.DB) {
 	var req struct {
 		Name string `json:"name"`
@@ -30,19 +39,18 @@ func CreateStageHandler(c *gin.Context, dbClient *sql.DB) {
 }
 
 func DeleteStageHandler(c *gin.Context, dbClient *sql.DB) {
-	var req struct {
-		Name string `json:"name"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+	// Get the name from the URL parameter, not the body
+	name := c.Param("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Stage name is required in URL"})
 		return
 	}
-	err := db.DeleteStage(dbClient, req.Name)
+
+	err := db.DeleteStage(dbClient, name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
-	} else {
-		c.JSON(http.StatusOK, gin.H{"message": "Stage deleted"})
 	}
 
+	c.JSON(http.StatusOK, gin.H{"message": "Stage deleted"})
 }

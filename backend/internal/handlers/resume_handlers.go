@@ -8,7 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
+func ListResumesHandler(c *gin.Context, dbClient *sql.DB) {
+	resumes, err := db.ListResumes(dbClient)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resumes)
+}
 
 func CreateResumeHandler(c *gin.Context, dbClient *sql.DB) {
 	var req struct {

@@ -15,10 +15,16 @@ func SetupRouter(db *sql.DB) *gin.Engine {
 	api := router.Group("/api/v1")
 	{
 		api.POST("/stage", func(c *gin.Context) { handlers.CreateStageHandler(c, db) })
+		api.GET("/stage", func(c *gin.Context) { handlers.ListStagesHandler(c, db) })
 		api.DELETE("/stage/:name", func(c *gin.Context) { handlers.DeleteStageHandler(c, db) })
+
 		api.POST("/jobrole", func(c *gin.Context) { handlers.CreateJobRoleHandler(c, db) })
+		api.GET("/jobrole", func(c *gin.Context) { handlers.ListJobRolesHandler(c, db) })
 		api.DELETE("/jobrole/:name", func(c *gin.Context) { handlers.DeleteJobRoleHandler(c, db) })
+
 		api.POST("/resume", func(c *gin.Context) { handlers.CreateResumeHandler(c, db) })
+		api.GET("/resume", func(c *gin.Context) { handlers.ListResumesHandler(c, db) })
+
 		api.GET("/health", func(c *gin.Context) { handlers.HealthCheck(c) })
 	}
 

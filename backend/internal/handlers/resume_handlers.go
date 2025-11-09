@@ -18,7 +18,7 @@ func ListResumesHandler(c *gin.Context, dbClient *sql.DB) {
 	c.JSON(http.StatusOK, resumes)
 }
 
-func MoveApplicationHandler(c *gin.Context, dbClient *sql.DB) {
+func ChangeApplicationStageHandler(c *gin.Context, dbClient *sql.DB) {
 	idString := c.Param("id")
 	ID, err := strconv.Atoi(idString)
 	if err != nil {
@@ -33,7 +33,7 @@ func MoveApplicationHandler(c *gin.Context, dbClient *sql.DB) {
 		return
 	}
 
-	err = db.MoveApplication(dbClient, ID, req.Stage)
+	err = db.ChangeApplicationStage(dbClient, ID, req.Stage)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -42,9 +42,33 @@ func MoveApplicationHandler(c *gin.Context, dbClient *sql.DB) {
 	c.JSON(http.StatusOK, gin.H{"message": "Application moved"})
 }
 
+func ChangeApplicationRoleHandler(c *gin.Context, dbClient *sql.DB) {
+	idString := c.Param("id")
+	ID, err := strconv.Atoi(idString)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	var req struct {
+		Role string `json:"role"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+		return
+	}
+
+	err = db.ChangeApplicationRole(dbClient, ID, req.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Application role changed"})
+}
+
 func CreateResumeHandler(c *gin.Context, dbClient *sql.DB) {
 	var req struct {
-		ID      int    `json:"id"`
+		ID      string `json:"id"`
 		JobRole string `json:"jobrole"`
 		Stage   string `json:"stage"`
 	}

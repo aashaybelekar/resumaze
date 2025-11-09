@@ -6,9 +6,10 @@ import (
 	"github.com/aashaybelekar/resumaze/internal/handlers"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/api/drive/v3"
 )
 
-func SetupRouter(db *sql.DB) *gin.Engine {
+func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 	router := gin.Default()
 	router.Use(cors.Default())
 
@@ -23,8 +24,11 @@ func SetupRouter(db *sql.DB) *gin.Engine {
 		api.DELETE("/jobrole/:name", func(c *gin.Context) { handlers.DeleteJobRoleHandler(c, db) })
 
 		api.POST("/resume", func(c *gin.Context) { handlers.CreateResumeHandler(c, db) })
-		api.PUT("/resume/:id/stage", func(c *gin.Context) { handlers.MoveApplicationHandler(c, db) })
+		api.PUT("/resume/:id/stage", func(c *gin.Context) { handlers.ChangeApplicationStageHandler(c, db) })
+		api.PUT("/resume/:id/role", func(c *gin.Context) { handlers.ChangeApplicationRoleHandler(c, db) })
 		api.GET("/resume", func(c *gin.Context) { handlers.ListResumesHandler(c, db) })
+
+		api.POST("/resume/upload", func(c *gin.Context) { handlers.UploadToDriveHandler(c, db, srv) })
 
 		api.GET("/health", func(c *gin.Context) { handlers.HealthCheck(c) })
 	}

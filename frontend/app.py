@@ -251,6 +251,10 @@ def page_resume_board():
             "No stages found. Please create stages in 'Manage Settings' first.")
         return
 
+    if not resumes_data:
+        st.info("No resumes found. Upload some resumes to get started!")
+        return
+
     stage_names = stages_data
 
     items_by_stage = {stage: [] for stage in stage_names}

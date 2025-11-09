@@ -135,7 +135,7 @@ func ChangeApplicationRole(db *sql.DB, applicationID int, roleName string) error
 	return nil
 }
 
-func CreateResume(db *sql.DB, resumeID string, jobRole string, stageName string) (bool, error) {
+func CreateResume(db *sql.DB, resumeID string, fileName string, jobRole string, stageName string) (bool, error) {
 	var StageID int
 	var JobID int
 	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, jobRole).Scan(&JobID)
@@ -148,7 +148,7 @@ func CreateResume(db *sql.DB, resumeID string, jobRole string, stageName string)
 		log.Fatal("Failed to get stage_id")
 		return false, err
 	}
-	_, err = db.Exec(`INSERT INTO application (drive_file_id, job_role_id, current_stage_id) VALUES ($1, $2, $3)`, resumeID, JobID, StageID)
+	_, err = db.Exec(`INSERT INTO application (drive_file_id, drive_file_name, job_role_id, current_stage_id) VALUES ($1, $2, $3, $4)`, resumeID, fileName, JobID, StageID)
 
 	return true, err
 }

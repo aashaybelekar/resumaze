@@ -57,7 +57,7 @@ func UploadToDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) 
 		}
 
 		// Save to DB
-		succ, err := db.CreateResume(database, uploadedFile.Id, req.Role, req.Stage)
+		succ, err := db.CreateResume(database, uploadedFile.Id, uploadedFile.Name, req.Role, req.Stage)
 		if err != nil {
 			log.Printf("db insert error for %s: %v", f.Filename, err)
 			continue

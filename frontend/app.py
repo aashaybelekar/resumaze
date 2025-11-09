@@ -34,7 +34,7 @@ def get_health() -> bool:
     """Checks the health of the API."""
     try:
         response = requests.get(f"{API_BASE_URL}/health")
-        return response.status_code == 200 and response.json().get("message") == "OK"
+        return response.status_code == 200 and response.json().get("status") == "ok"
     except requests.exceptions.ConnectionError:
         return False
     except Exception as e:
@@ -166,9 +166,9 @@ def update_resume_stage(resume_id: int, new_stage: str) -> bool:
 def update_resume_job_role(resume_id: int, new_job_role: str) -> bool:
     """Updates a resume's job role via the new PUT endpoint."""
     try:
-        payload = {"jobrole": new_job_role}
+        payload = {"role": new_job_role}
         response = requests.put(
-            f"{API_BASE_URL}/resume/{resume_id}/jobrole", json=payload)
+            f"{API_BASE_URL}/resume/{resume_id}/role", json=payload)
         if response.status_code == 200:
             st.toast(
                 f"Updated resume {resume_id} to {new_job_role}!", icon="✅")
@@ -181,28 +181,20 @@ def update_resume_job_role(resume_id: int, new_job_role: str) -> bool:
 
 
 def upload_resumes(files: List[Any], job_role: str, stage: str) -> bool:
-    """Uploads multiple resume files."""
     try:
-        files_to_upload = [("files", (file.name, file, file.type))
-                           for file in files]
-        data = {"jobrole": job_role, "stage": stage}
+        files_to_upload = [("file", (file.name, file, file.type))
+                           for file in files]  # note singular "file"
+        payload = {"role": job_role, "stage": stage}
 
         response = requests.post(
             f"{API_BASE_URL}/resume/upload",
             files=files_to_upload,
-            data=data
+            data=payload  # ✅ form data, not JSON
         )
-
-        if response.status_code == 200:
-            resp_data = response.json()
-            st.success(
-                f"Upload finished! {resp_data.get('successfulUploads', 0)} succeeded, {resp_data.get('failedUploads', 0)} failed.")
-            return True
-
-        handle_api_error(response)
-        return False
+        print(response.json())
+        return response.ok
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        print("Upload error:", e)
         return False
 
 

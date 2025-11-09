@@ -1,6 +1,7 @@
 package drive
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
@@ -25,5 +26,18 @@ func UploadFile(srv *drive.Service, folderID, localFilePath string) (*drive.File
 		return nil, err
 	}
 
+	return uploadedFile, nil
+}
+
+func UploadStream(srv *drive.Service, folderID string, reader io.Reader, filename string) (*drive.File, error) {
+	f := &drive.File{
+		Name:    filename,
+		Parents: []string{folderID},
+	}
+
+	uploadedFile, err := srv.Files.Create(f).Media(reader).Do()
+	if err != nil {
+		return nil, err
+	}
 	return uploadedFile, nil
 }

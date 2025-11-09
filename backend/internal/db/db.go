@@ -40,6 +40,7 @@ func InitDB(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS application (
 		id SERIAL PRIMARY KEY,
 		drive_file_id TEXT NOT NULL,
+		drive_file_name TEXT NOT NULL,
 		job_role_id INT REFERENCES job_roles(id),
 		current_stage_id INT REFERENCES stages(id),
 		candidate_name TEXT,

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/aashaybelekar/resumaze/internal/db"
+	gdrive "github.com/aashaybelekar/resumaze/internal/drive"
 	"github.com/aashaybelekar/resumaze/internal/routes"
 	"github.com/joho/godotenv"
 )
@@ -27,8 +28,15 @@ func main() {
 		log.Fatal("DB initialization failed:", err)
 	}
 
+	jsonPath := os.Getenv("AUTH_JSON_PATH")
+	// Connect Drive
+	srv, err := gdrive.NewAuthDriveService(jsonPath)
+	if err != nil {
+		log.Fatal("Drive initialization failed:", err)
+	}
+
 	// Setup router and inject DB instance
-	router := routes.SetupRouter(database)
+	router := routes.SetupRouter(database, srv)
 
 	port := os.Getenv("PORT")
 	if port == "" {

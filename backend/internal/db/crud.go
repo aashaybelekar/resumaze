@@ -82,7 +82,7 @@ func DeleteStage(db *sql.DB, stageName string) error {
 	return nil
 }
 
-func MoveApplication(db *sql.DB, applicationID int, stageName string) error {
+func ChangeApplicationStage(db *sql.DB, applicationID int, stageName string) error {
 	var stageID int
 	err := db.QueryRow(`SELECT id FROM stages WHERE name=$1`, stageName).Scan(&stageID)
 	if err != nil {
@@ -109,7 +109,33 @@ func MoveApplication(db *sql.DB, applicationID int, stageName string) error {
 	return nil
 }
 
-func CreateResume(db *sql.DB, resumeID int, jobRole string, stageName string) (bool, error) {
+func ChangeApplicationRole(db *sql.DB, applicationID int, roleName string) error {
+	var roleID int
+	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, roleName).Scan(&roleID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("role %s does not exist", roleName)
+		}
+		return err
+	}
+	result, err := db.Exec(`UPDATE application SET job_role_id=$1 WHERE drive_file_id=$2`, roleID, applicationID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("application with ID %d not found", applicationID)
+	}
+
+	return nil
+}
+
+func CreateResume(db *sql.DB, resumeID string, jobRole string, stageName string) (bool, error) {
 	var StageID int
 	var JobID int
 	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, jobRole).Scan(&JobID)

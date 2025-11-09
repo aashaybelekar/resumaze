@@ -82,18 +82,31 @@ func DeleteStage(db *sql.DB, stageName string) error {
 	return nil
 }
 
-func MoveApplication(db *sql.DB, resumeID int, stageName string) (bool, error) {
+func MoveApplication(db *sql.DB, applicationID int, stageName string) error {
 	var stageID int
 	err := db.QueryRow(`SELECT id FROM stages WHERE name=$1`, stageName).Scan(&stageID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, fmt.Errorf("stage %s does not exist", stageName)
+			return fmt.Errorf("stage %s does not exist", stageName)
 		}
-		return false, err
+		return err
 	}
 
-	_, err = db.Exec(`UPDATE application SET current_stage_id=$1 WHERE id=$2`, stageID, resumeID)
-	return true, err
+	result, err := db.Exec(`UPDATE application SET current_stage_id=$1 WHERE drive_file_id=$2`, stageID, applicationID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("application with ID %d not found", applicationID)
+	}
+
+	return nil
 }
 
 func CreateResume(db *sql.DB, resumeID int, jobRole string, stageName string) (bool, error) {

@@ -23,6 +23,7 @@ func SetupRouter(db *sql.DB) *gin.Engine {
 		api.DELETE("/jobrole/:name", func(c *gin.Context) { handlers.DeleteJobRoleHandler(c, db) })
 
 		api.POST("/resume", func(c *gin.Context) { handlers.CreateResumeHandler(c, db) })
+		api.PUT("/resume/:id/stage", func(c *gin.Context) { handlers.MoveApplicationHandler(c, db) })
 		api.GET("/resume", func(c *gin.Context) { handlers.ListResumesHandler(c, db) })
 
 		api.GET("/health", func(c *gin.Context) { handlers.HealthCheck(c) })

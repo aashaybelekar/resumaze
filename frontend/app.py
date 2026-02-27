@@ -180,7 +180,7 @@ def update_resume_job_role(resume_id: int, new_job_role: str) -> bool:
         return False
 
 
-def upload_resumes(files: List[Any], job_role: str, stage: str) -> bool:
+def upload_resumes(files: List[Any], job_role: str, stage: str) -> dict:
     try:
         files_to_upload = [("file", (file.name, file, file.type))
                            for file in files]  # note singular "file"
@@ -191,11 +191,10 @@ def upload_resumes(files: List[Any], job_role: str, stage: str) -> bool:
             files=files_to_upload,
             data=payload  # ✅ form data, not JSON
         )
-        print(response.json())
-        return response.ok
+        return response.json()
     except Exception as e:
         print("Upload error:", e)
-        return False
+        return {}
 
 
 # --- State Management ---
@@ -513,8 +512,15 @@ def page_upload_resumes():
             elif not job_role or not stage:
                 st.error("Please select a Job Role and Stage.")
             else:
-                if upload_resumes(uploaded_files, job_role, stage):
-                    refresh_data('resumes')
+                with st.spinner("Uploading and processing..."):
+                    response_data = upload_resumes(
+                        uploaded_files, job_role, stage)
+                    if response_data and response_data.get("message"):
+                        st.success(
+                            f'{response_data.get("message")}')
+                    else:
+                        st.error(
+                            "An error occurred during upload. Check backend logs for details.")
 
 
 # --- Page: Manage Settings ---

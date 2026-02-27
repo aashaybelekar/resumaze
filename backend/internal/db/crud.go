@@ -155,7 +155,7 @@ func CreateResume(db *sql.DB, resumeID string, fileName string, jobRole string, 
 
 func ListResumes(db *sql.DB) ([][]string, error) {
 	rows, err := db.Query(` 
-		SELECT a.drive_file_id, j.name, s.name
+		SELECT a.id, j.name, s.name, COALESCE(a.candidate_name, '')
 		FROM application a
 		LEFT JOIN job_roles j ON a.job_role_id = j.id
 		LEFT JOIN stages s ON a.current_stage_id = s.id;`)
@@ -166,11 +166,14 @@ func ListResumes(db *sql.DB) ([][]string, error) {
 
 	var resumes [][]string
 	for rows.Next() {
-		var driveFileID, jobName, stageName string
-		if err := rows.Scan(&driveFileID, &jobName, &stageName); err != nil {
+		var id string // Scans the INT primary key as a string for JSON safety
+		var jobName, stageName, candidateName sql.NullString
+		
+		if err := rows.Scan(&id, &jobName, &stageName, &candidateName); err != nil {
 			return nil, err
 		}
-		resume := []string{driveFileID, jobName, stageName}
+		
+		resume := []string{id, jobName.String, stageName.String, candidateName.String}
 		resumes = append(resumes, resume)
 	}
 

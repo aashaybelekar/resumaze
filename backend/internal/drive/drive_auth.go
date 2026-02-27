@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -55,10 +56,17 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 }
 
 func saveToken(path string, token *oauth2.Token) {
+	dir := filepath.Dir(path)
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Fatalf("failed to create directory: %v", err)
+	}
+
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalf("Unable to save OAuth token: %v", err)
 	}
+
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }

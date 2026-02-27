@@ -72,7 +72,6 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 func NewAuthDriveService(clientSecretPath string) (*drive.Service, error) {
-	fmt.Println("REACHED HERE!1")
 	b, err := os.ReadFile(clientSecretPath)
 	if err != nil {
 		return nil, err
@@ -83,7 +82,6 @@ func NewAuthDriveService(clientSecretPath string) (*drive.Service, error) {
 		fmt.Println("YEP THIS IS ISSUE.")
 		return nil, err
 	}
-	fmt.Println("REACHED HERE!c")
 
 	client := getClient(config)
 	return drive.NewService(context.Background(), option.WithHTTPClient(client))

@@ -53,7 +53,6 @@ func ParseResumeDetails(database *sql.DB, fileID string, fileName string, pdfByt
 		log.Fatal(err)
 	}
 
-	fmt.Println(text)	
 
 	log.Printf("file content for %s: %s", fileName, text)
 
@@ -154,7 +153,6 @@ func ParseResumeDetails(database *sql.DB, fileID string, fileName string, pdfByt
 		return
 	}
 
-	log.Printf("parsed details for %s: %+v", fileName, resumeData)
 
 	if err := db.UpdateApplicationWithResumeData(database, fileID, resumeData.CandidateName, resumeData.PreviousCTC, resumeData.ExpectedCTC, resumeData.NoticePeriod, resumeData.PhoneNumber, resumeData.Email); err != nil {
 		log.Printf("failed to update application with resume data for %s: %v", fileName, err)

@@ -1,25 +1,12 @@
 package drive
 
 import (
-	"context"
+	"io"
 	"os"
+	"path/filepath"
 
 	"google.golang.org/api/drive/v3"
-	"google.golang.org/api/option"
 )
-
-// NewDriveService creates a Google Drive service using a service account JSON key
-func NewDriveService(jsonKeyPath string) (*drive.Service, error) {
-	ctx := context.Background()
-
-	// Use the service account JSON file
-	srv, err := drive.NewService(ctx, option.WithCredentialsFile(jsonKeyPath))
-	if err != nil {
-		return nil, err
-	}
-
-	return srv, nil
-}
 
 func UploadFile(srv *drive.Service, folderID, localFilePath string) (*drive.File, error) {
 	f, err := os.Open(localFilePath)
@@ -28,7 +15,7 @@ func UploadFile(srv *drive.Service, folderID, localFilePath string) (*drive.File
 	}
 	defer f.Close()
 
-	fileName := f.Name()
+	fileName := filepath.Base(f.Name())
 	driveFile := &drive.File{
 		Name:    fileName,
 		Parents: []string{folderID}, // specify the folder
@@ -39,5 +26,18 @@ func UploadFile(srv *drive.Service, folderID, localFilePath string) (*drive.File
 		return nil, err
 	}
 
+	return uploadedFile, nil
+}
+
+func UploadStream(srv *drive.Service, folderID string, reader io.Reader, filename string) (*drive.File, error) {
+	f := &drive.File{
+		Name:    filename,
+		Parents: []string{folderID},
+	}
+
+	uploadedFile, err := srv.Files.Create(f).Media(reader).Do()
+	if err != nil {
+		return nil, err
+	}
 	return uploadedFile, nil
 }

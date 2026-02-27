@@ -31,5 +31,8 @@ go.work.sum
 # .idea/
 .vscode/
 
-# Secrets Folder
+# Secrets Dir
 secrets/
+
+# Test Data Dir
+data/

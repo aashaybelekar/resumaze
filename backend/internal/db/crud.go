@@ -247,3 +247,17 @@ func DeleteJobRole(db *sql.DB, jobRole string) error {
 	_, err = db.Exec(`DELETE FROM job_roles WHERE id=$1`, roleID)
 	return err
 }
+
+func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, candidateName string, previousCTC float64, expectedCTC float64, noticePeriod int, phoneNumber string, email string) error {
+	_, err := db.Exec(`
+		UPDATE application
+		SET candidate_name = $2,
+			previous_ctc = $3,
+			expected_ctc = $4,
+			notice_period = $5,
+			phone_number = $6,
+			email = $7
+		WHERE drive_file_id = $1
+	`, driveFileID, candidateName, previousCTC, expectedCTC, noticePeriod, phoneNumber, email)
+	return err
+}

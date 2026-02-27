@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"io"
 
+	"github.com/aashaybelekar/resumaze/internal/ai"
 	"github.com/aashaybelekar/resumaze/internal/db"
 	gdrive "github.com/aashaybelekar/resumaze/internal/drive"
 	"github.com/gin-gonic/gin"
@@ -48,6 +50,11 @@ func UploadToDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) 
 			continue
 		}
 		defer src.Close()
+		pdfBytes, err := io.ReadAll(src)
+		if err != nil {
+			log.Printf("failed to read file %s: %v", f.Filename, err)
+			continue
+		}
 
 		// Upload to Google Drive
 		uploadedFile, err := gdrive.UploadStream(srv, folderID, src, f.Filename)
@@ -64,6 +71,7 @@ func UploadToDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) 
 		}
 		if succ {
 			uploadedCount++
+			go ai.ParseResumeDetails(database, uploadedFile.Id, uploadedFile.Name, pdfBytes)
 		}
 	}
 

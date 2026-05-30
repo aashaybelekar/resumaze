@@ -43,9 +43,11 @@ Do not return explanations.
 // ParseResumeDetails extracts resume fields using Gemini if GOOGLE_STUDIO_API_KEY is set,
 // otherwise falls back to Groq if GROQ_API_KEY is set.
 func ParseResumeDetails(database *sql.DB, fileID string, fileName string, pdfBytes []byte) {
+	log.Printf("parsing resume: %s (fileID: %s)", fileName, fileID)
 	text, err := ExtractTextFromPDF(pdfBytes)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("failed to extract text from PDF %s: %v", fileName, err)
+		return
 	}
 
 	// // Key candidate info (name, CTC, phone, email) is always near the top

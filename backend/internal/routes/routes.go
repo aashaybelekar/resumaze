@@ -29,6 +29,7 @@ func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 		api.GET("/resume", func(c *gin.Context) { handlers.ListResumesHandler(c, db) })
 
 		api.POST("/resume/upload", func(c *gin.Context) { handlers.UploadToDriveHandler(c, db, srv) })
+		api.DELETE("/resume/:id", func(c *gin.Context) { handlers.DeleteFromDriveHandler(c, db, srv) })
 
 		api.GET("/health", func(c *gin.Context) { handlers.HealthCheck(c) })
 	}

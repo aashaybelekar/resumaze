@@ -140,6 +140,17 @@ def update_resume_job_role(resume_id: int, new_job_role: str) -> bool:
         st.error(f"An error occurred: {e}")
         return False
 
+def delete_resume(resume_id: int) -> bool:
+    try:
+        response = requests.delete(f"{API_BASE_URL}/resume/{resume_id}")
+        if response.status_code == 200:
+            return True
+        handle_api_error(response)
+        return False
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        return False
+
 def upload_resumes(files: List[Any], job_role: str, stage: str) -> dict:
     try:
         files_to_upload = [("file", (file.name, file, file.type)) for file in files]

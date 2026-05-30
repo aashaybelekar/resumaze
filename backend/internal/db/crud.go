@@ -153,6 +153,19 @@ func CreateResume(db *sql.DB, resumeID string, fileName string, jobRole string, 
 	return true, err
 }
 
+func DeleteResume(db *sql.DB, applicationID int) (string, error) {
+	var driveFileID string
+	err := db.QueryRow(`SELECT drive_file_id FROM application WHERE id=$1`, applicationID).Scan(&driveFileID)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("resume not found")
+	}
+	if err != nil {
+		return "", err
+	}
+	_, err = db.Exec(`DELETE FROM application WHERE id=$1`, applicationID)
+	return driveFileID, err
+}
+
 func ListResumes(db *sql.DB) ([][]string, error) {
 	rows, err := db.Query(` 
 		SELECT a.id, j.name, s.name, COALESCE(a.candidate_name, '')

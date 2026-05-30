@@ -131,3 +131,28 @@ def render():
                             st.error("Cannot update: Resume ID is not an integer.")
                         except Exception as e:
                             st.error(f"An error occurred: {e}")
+
+                confirm_key = f"confirm_delete_{resume_id}"
+                if st.session_state.get(confirm_key):
+                    st.warning(f"Move **{data['name']}** to deleted folder?")
+                    col_yes, col_no = st.columns(2)
+                    with col_yes:
+                        if st.button("Yes, delete", key=f"yes_delete_{resume_id}", type="primary", use_container_width=True):
+                            try:
+                                if api.delete_resume(int(resume_id)):
+                                    st.session_state.pop(confirm_key, None)
+                                    st.success(f"Moved {data['name']} to deleted.")
+                                    refresh_data('resumes')
+                                    st.rerun()
+                                else:
+                                    st.error("Delete failed.")
+                            except ValueError:
+                                st.error("Cannot delete: Resume ID is not an integer.")
+                    with col_no:
+                        if st.button("Cancel", key=f"no_delete_{resume_id}", use_container_width=True):
+                            st.session_state.pop(confirm_key, None)
+                            st.rerun()
+                else:
+                    if st.button("🗑️ Delete", key=f"delete_{resume_id}", use_container_width=True):
+                        st.session_state[confirm_key] = True
+                        st.rerun()

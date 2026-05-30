@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
-	"io"
+	"strconv"
 
 	"github.com/aashaybelekar/resumaze/internal/ai"
 	"github.com/aashaybelekar/resumaze/internal/db"
@@ -57,7 +59,7 @@ func UploadToDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) 
 		}
 
 		// Upload to Google Drive
-		uploadedFile, err := gdrive.UploadStream(srv, folderID, src, f.Filename)
+		uploadedFile, err := gdrive.UploadStream(srv, folderID, bytes.NewReader(pdfBytes), f.Filename)
 		if err != nil {
 			log.Printf("upload failed for %s: %v", f.Filename, err)
 			continue
@@ -80,4 +82,29 @@ func UploadToDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) 
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "no files were uploaded successfully"})
 	}
+}
+
+func DeleteFromDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service) {
+	folderID := os.Getenv("DRIVE_FOLDER_ID")
+
+	idStr := c.Param("id")
+	applicationID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resume ID"})
+		return
+	}
+
+	driveFileID, err := db.DeleteResume(database, applicationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if _, err := gdrive.MoveToDeleted(srv, driveFileID, folderID); err != nil {
+		log.Printf("DB record removed but drive move failed for file %s: %v", driveFileID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "resume removed from DB but could not move file on Drive: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "resume moved to deleted"})
 }

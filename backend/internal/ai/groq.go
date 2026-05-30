@@ -2,20 +2,13 @@ package ai
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"os"
-
-	"github.com/ledongthuc/pdf"
-	"github.com/aashaybelekar/resumaze/internal/db"
-	"google.golang.org/api/drive/v3"
 )
 
-type GroqRequest struct {
+type groqRequest struct {
 	Model    string `json:"model"`
 	Messages []struct {
 		Role    string `json:"role"`
@@ -24,13 +17,13 @@ type GroqRequest struct {
 	ResponseFormat struct {
 		Type string `json:"type"`
 	} `json:"response_format"`
-	Stream bool `json:"stream"`
-	MaxTokens int `json:"max_tokens"`
-	Temperature float64 `json:"temperature"`
-	ReasoningEffort string `json:"reasoning_effort"`
+	Stream          bool    `json:"stream"`
+	MaxTokens       int     `json:"max_tokens"`
+	Temperature     float64 `json:"temperature"`
+	ReasoningEffort string  `json:"reasoning_effort"`
 }
 
-type GroqResponse struct {
+type groqResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
@@ -38,161 +31,61 @@ type GroqResponse struct {
 	} `json:"choices"`
 }
 
-type ResumeData struct {
-	CandidateName  string  `json:"candidate_name"`
-	PreviousCTC    float64 `json:"previous_ctc"`
-	ExpectedCTC    float64 `json:"expected_ctc"`
-	NoticePeriod   int     `json:"notice_period"`
-	PhoneNumber    string  `json:"phone_number"`
-	Email          string  `json:"email"`
-}
-
-func ParseResumeDetails(database *sql.DB, fileID string, fileName string, pdfBytes []byte){
-	text, err := ExtractTextFromPDF(pdfBytes)
-	if err != nil {
-		log.Fatal(err)
+func parseWithGroq(apiKey string, text string) (*ResumeData, error) {
+	reqBody := groqRequest{
+		Model: "openai/gpt-oss-20b",
+		Messages: []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		}{
+			{Role: "system", Content: resumePrompt},
+			{Role: "user", Content: text},
+		},
+		ResponseFormat: struct {
+			Type string `json:"type"`
+		}{Type: "json_object"},
+		Stream:          false,
+		MaxTokens:       300,
+		Temperature:     1,
+		ReasoningEffort: "medium",
 	}
-
-
-	log.Printf("file content for %s: %s", fileName, text)
-
-	apiKey := os.Getenv("GROQ_API_KEY")
-	if apiKey == "" {
-		log.Println("GROQ_API_KEY not set")
-		return
-	}
-
-	url := "https://api.groq.com/openai/v1/chat/completions"
-
-	prompt := `
-	Extract the following fields from the resume and return STRICT JSON.
-
-	Use EXACTLY these keys:
-	{
-	"candidate_name": string,
-	"previous_ctc": number,
-	"expected_ctc": number,
-	"notice_period": number,
-	"phone_number": string,
-	"email": string
-	}
-
-	If a field is missing, return null.
-	Do not return explanations.
-	`
-
-	reqBody := GroqRequest{
-				Model: "openai/gpt-oss-20b",
-				Messages: []struct {
-					Role    string `json:"role"`
-					Content string `json:"content"`
-				}{
-					{
-						Role: "system",
-						Content: prompt,
-					},
-					{
-						Role: "user",
-						Content: text,
-					},
-				},
-				ResponseFormat: struct {
-					Type string `json:"type"`
-				}{
-					Type: "json_object",
-				},
-				Stream: false,
-				MaxTokens: 30000,
-				Temperature: 1,
-				ReasoningEffort: "medium",
-			}
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		log.Printf("failed to marshal request body for %s: %v", fileName, err)
-		return
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		log.Printf("failed to create request for %s: %v", fileName, err)
-		return
+		return nil, fmt.Errorf("create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("failed to send request to Groq API for %s: %v", fileName, err)
-		return
+		return nil, fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Groq API request failed with status %d for %s: %s", resp.StatusCode, fileName, string(body))
-		return
+		return nil, fmt.Errorf("groq API status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var groqResp GroqResponse
+	var groqResp groqResponse
 	if err := json.NewDecoder(resp.Body).Decode(&groqResp); err != nil {
-		log.Printf("failed to decode Groq API response for %s: %v", fileName, err)
-		return
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	if len(groqResp.Choices) == 0 {
-		log.Printf("no choices in Groq API response for %s", fileName)
-		return
+		return nil, fmt.Errorf("no choices in groq response")
 	}
 
-	var resumeData ResumeData
-	if err := json.Unmarshal([]byte(groqResp.Choices[0].Message.Content), &resumeData); err != nil {
-		log.Printf("failed to unmarshal resume data from Groq API response for %s: %v", fileName, err)
-		return
+	var data ResumeData
+	if err := json.Unmarshal([]byte(groqResp.Choices[0].Message.Content), &data); err != nil {
+		return nil, fmt.Errorf("unmarshal resume data: %w", err)
 	}
 
-
-	if err := db.UpdateApplicationWithResumeData(database, fileID, resumeData.CandidateName, resumeData.PreviousCTC, resumeData.ExpectedCTC, resumeData.NoticePeriod, resumeData.PhoneNumber, resumeData.Email); err != nil {
-		log.Printf("failed to update application with resume data for %s: %v", fileName, err)
-		return
-	}
-
-	log.Printf("successfully parsed and updated resume details for %s", fileName)
-}
-
-func DownloadFile(srv *drive.Service, fileID string) ([]byte, error) {
-	resp, err := srv.Files.Get(fileID).Download()
-	if err != nil {
-		return nil, fmt.Errorf("failed to download file: %w", err)
-	}
-	defer resp.Body.Close()
-
-	return io.ReadAll(resp.Body)
-}
-
-
-func ExtractTextFromPDF(pdfBytes []byte) (string, error) {
-	reader, err := pdf.NewReader(bytes.NewReader(pdfBytes), int64(len(pdfBytes)))
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	totalPage := reader.NumPage()
-
-	for pageIndex := 1; pageIndex <= totalPage; pageIndex++ {
-		page := reader.Page(pageIndex)
-		if page.V.IsNull() {
-			continue
-		}
-		text, err := page.GetPlainText(nil)
-		if err != nil {
-			return "", err
-		}
-		buf.WriteString(text)
-	}
-
-	return buf.String(), nil
+	return &data, nil
 }

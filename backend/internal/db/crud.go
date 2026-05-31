@@ -166,9 +166,23 @@ func DeleteResume(db *sql.DB, applicationID int) (string, error) {
 	return driveFileID, err
 }
 
-func ListResumes(db *sql.DB) ([][]string, error) {
-	rows, err := db.Query(` 
-		SELECT a.id, j.name, s.name, COALESCE(a.candidate_name, '')
+type Resume struct {
+	ID          int    `json:"id"`
+	JobRole     string `json:"job_role"`
+	Stage       string `json:"stage"`
+	FirstName   string `json:"first_name"`
+	MiddleName  string `json:"middle_name"`
+	LastName    string `json:"last_name"`
+	PhoneNumber string `json:"phone_number"`
+	Email       string `json:"email"`
+	HasGithub   bool   `json:"has_github"`
+}
+
+func ListResumes(db *sql.DB) ([]Resume, error) {
+	rows, err := db.Query(`
+		SELECT a.id, COALESCE(j.name, ''), COALESCE(s.name, ''),
+			COALESCE(a.first_name, ''), COALESCE(a.middle_name, ''), COALESCE(a.last_name, ''),
+			COALESCE(a.phone_number, ''), COALESCE(a.email, ''), COALESCE(a.has_github, false)
 		FROM application a
 		LEFT JOIN job_roles j ON a.job_role_id = j.id
 		LEFT JOIN stages s ON a.current_stage_id = s.id;`)
@@ -177,17 +191,13 @@ func ListResumes(db *sql.DB) ([][]string, error) {
 	}
 	defer rows.Close()
 
-	var resumes [][]string
+	var resumes []Resume
 	for rows.Next() {
-		var id string // Scans the INT primary key as a string for JSON safety
-		var jobName, stageName, candidateName sql.NullString
-		
-		if err := rows.Scan(&id, &jobName, &stageName, &candidateName); err != nil {
+		var r Resume
+		if err := rows.Scan(&r.ID, &r.JobRole, &r.Stage, &r.FirstName, &r.MiddleName, &r.LastName, &r.PhoneNumber, &r.Email, &r.HasGithub); err != nil {
 			return nil, err
 		}
-		
-		resume := []string{id, jobName.String, stageName.String, candidateName.String}
-		resumes = append(resumes, resume)
+		resumes = append(resumes, r)
 	}
 
 	return resumes, nil
@@ -264,16 +274,16 @@ func DeleteJobRole(db *sql.DB, jobRole string) error {
 	return err
 }
 
-func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, candidateName string, previousCTC float64, expectedCTC float64, noticePeriod int, phoneNumber string, email string) error {
+func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, firstName string, middleName string, lastName string, phoneNumber string, email string, hasGithub bool) error {
 	_, err := db.Exec(`
 		UPDATE application
-		SET candidate_name = $2,
-			previous_ctc = $3,
-			expected_ctc = $4,
-			notice_period = $5,
-			phone_number = $6,
-			email = $7
+		SET first_name = $2,
+			middle_name = $3,
+			last_name = $4,
+			phone_number = $5,
+			email = $6,
+			has_github = $7
 		WHERE drive_file_id = $1
-	`, driveFileID, candidateName, previousCTC, expectedCTC, noticePeriod, phoneNumber, email)
+	`, driveFileID, firstName, middleName, lastName, phoneNumber, email, hasGithub)
 	return err
 }

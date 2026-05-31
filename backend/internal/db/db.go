@@ -20,8 +20,8 @@ func InitDB(db *sql.DB) error {
 	}
 
 	if exists {
-		fmt.Println("Warning: Database schema already exists. Skipping creation.")
-		return nil
+		fmt.Println("Warning: Database schema already exists. Running migrations...")
+		return runMigrations(db)
 	}
 
 	fmt.Println("INFO: Schema not found, creating tables...")
@@ -43,12 +43,12 @@ func InitDB(db *sql.DB) error {
 		drive_file_name TEXT NOT NULL,
 		job_role_id INT REFERENCES job_roles(id),
 		current_stage_id INT REFERENCES stages(id),
-		candidate_name TEXT,
-		previous_ctc NUMERIC(12, 2),
-		expected_ctc NUMERIC(12, 2),
-		notice_period INT,
+		first_name TEXT,
+		middle_name TEXT,
+		last_name TEXT,
 		phone_number TEXT,
 		email TEXT,
+		has_github BOOLEAN DEFAULT FALSE,
 		uploaded_time TIMESTAMP DEFAULT NOW(),
 		uploaded_by TEXT,
 		last_change_time TIMESTAMP DEFAULT NOW(),
@@ -84,5 +84,28 @@ func InitDB(db *sql.DB) error {
 	}
 
 	fmt.Println("INFO: Schema initialized successfully.")
+	return nil
+}
+
+func runMigrations(db *sql.DB) error {
+	migrations := []struct {
+		check string
+		apply string
+	}{
+		{
+			check: `SELECT 1 FROM information_schema.columns WHERE table_name='application' AND column_name='first_name'`,
+			apply: `ALTER TABLE application ADD COLUMN first_name TEXT, ADD COLUMN middle_name TEXT, ADD COLUMN last_name TEXT, ADD COLUMN has_github BOOLEAN DEFAULT FALSE`,
+		},
+	}
+
+	for _, m := range migrations {
+		var exists int
+		if err := db.QueryRow(m.check).Scan(&exists); err == sql.ErrNoRows {
+			if _, err := db.Exec(m.apply); err != nil {
+				return fmt.Errorf("migration failed: %w", err)
+			}
+			fmt.Println("INFO: Migration applied:", m.apply[:40])
+		}
+	}
 	return nil
 }

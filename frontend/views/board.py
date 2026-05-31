@@ -27,24 +27,21 @@ def render():
 
     try:
         for row in resumes_data:
-            if len(row) >= 3:
-                resume_id_str = str(row[0])
-                job_role = row[1]
-                stage = row[2]
-                candidate_name = row[3] if len(row) > 3 and row[3] else None
-                display_name = candidate_name if candidate_name else f"Candidate #{resume_id_str}"
-                
-                resume_map[resume_id_str] = {
-                    "id": resume_id_str,
-                    "job_role": job_role,
-                    "stage": stage,
-                    "name": display_name
-                }
-                
-                if stage in items_by_stage:
-                    items_by_stage[stage].append(resume_id_str)
-            else:
-                st.warning(f"Skipping malformed resume data: {row}")
+            resume_id_str = str(row["id"])
+            job_role = row.get("job_role", "")
+            stage = row.get("stage", "")
+            parts = [row.get("first_name", ""), row.get("middle_name", ""), row.get("last_name", "")]
+            display_name = " ".join(p for p in parts if p) or f"Candidate #{resume_id_str}"
+
+            resume_map[resume_id_str] = {
+                "id": resume_id_str,
+                "job_role": job_role,
+                "stage": stage,
+                "name": display_name,
+            }
+
+            if stage in items_by_stage:
+                items_by_stage[stage].append(resume_id_str)
     except Exception as e:
         st.error(f"Failed to parse resume data. (Error: {e})")
         st.json(resumes_data)

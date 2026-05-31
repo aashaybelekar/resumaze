@@ -23,19 +23,21 @@ def render():
 
     resume_map = {}
     for row in resumes_data:
-        if len(row) >= 3:
-            resume_id_str = str(row[0])
-            job_role = row[1]
-            stage = row[2]
-            candidate_name = row[3] if len(row) > 3 and row[3] else None
-            display_name = candidate_name if candidate_name else f"Candidate #{resume_id_str}"
-            
-            resume_map[resume_id_str] = {
-                "id": resume_id_str, 
-                "job_role": job_role, 
-                "stage": stage,
-                "name": display_name
-            }
+        resume_id_str = str(row["id"])
+        parts = [row.get("first_name", ""), row.get("middle_name", ""), row.get("last_name", "")]
+        display_name = " ".join(p for p in parts if p) or f"Candidate #{resume_id_str}"
+        resume_map[resume_id_str] = {
+            "id": resume_id_str,
+            "job_role": row.get("job_role", ""),
+            "stage": row.get("stage", ""),
+            "name": display_name,
+            "first_name": row.get("first_name", ""),
+            "middle_name": row.get("middle_name", ""),
+            "last_name": row.get("last_name", ""),
+            "phone_number": row.get("phone_number", ""),
+            "email": row.get("email", ""),
+            "has_github": row.get("has_github", False),
+        }
 
     st.subheader("🔍 Find Resume")
     col1, col2 = st.columns([2, 1])
@@ -72,8 +74,18 @@ def render():
             with st.container(border=True):
                 st.markdown(f"### 📄 {data['name']}")
                 st.caption(f"ID: {data['id']}")
-                st.write(f"**Job Role:** {data['job_role']}")
-                st.write(f"**Stage:** {data['stage']}")
+                st.write(f"**Job Role:** {data['job_role'] or '—'}")
+                st.write(f"**Stage:** {data['stage'] or '—'}")
+
+                st.markdown("**Contact Details**")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.write(f"📞 {data['phone_number'] or '—'}")
+                with col_b:
+                    st.write(f"✉️ {data['email'] or '—'}")
+                github_label = "✅ GitHub present" if data['has_github'] else "❌ No GitHub"
+                st.caption(github_label)
+
                 st.markdown("---")
 
                 with st.form(key=f"edit_form_{resume_id}"):

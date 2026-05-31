@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"log"
 
 	"google.golang.org/genai"
 )
@@ -42,12 +43,12 @@ func parseWithGemini(ctx context.Context, apiKey string, text string) (*ResumeDa
 		ResponseSchema: &genai.Schema{
 			Type: genai.TypeObject,
 			Properties: map[string]*genai.Schema{
-				"candidate_name": {Type: genai.TypeString},
-				"previous_ctc":   {Type: genai.TypeNumber},
-				"expected_ctc":   {Type: genai.TypeNumber},
-				"notice_period":  {Type: genai.TypeInteger},
-				"phone_number":   {Type: genai.TypeString},
-				"email":          {Type: genai.TypeString},
+				"first_name":   {Type: genai.TypeString},
+				"middle_name":  {Type: genai.TypeString},
+				"last_name":    {Type: genai.TypeString},
+				"phone_number": {Type: genai.TypeString},
+				"email":        {Type: genai.TypeString},
+				"has_github":   {Type: genai.TypeBoolean},
 			},
 		},
 	}
@@ -60,6 +61,7 @@ func parseWithGemini(ctx context.Context, apiKey string, text string) (*ResumeDa
 	}
 
 	raw := stripCodeFences(result.Text())
+	log.Printf("Response Text: %s", raw)
 
 	var data ResumeData
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {

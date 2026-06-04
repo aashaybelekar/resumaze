@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
-	"log"
 
 	"google.golang.org/genai"
 )
@@ -38,16 +38,19 @@ func parseWithGemini(ctx context.Context, apiKey string, text string) (*ResumeDa
 		model = "gemma-4-26b-a4b-it"
 	}
 
+	nullable := true
+	strSchema := &genai.Schema{Type: genai.TypeString, Nullable: &nullable}
 	config := &genai.GenerateContentConfig{
 		ResponseMIMEType: "application/json",
 		ResponseSchema: &genai.Schema{
-			Type: genai.TypeObject,
+			Type:     genai.TypeObject,
+			Required: []string{"first_name", "last_name", "phone_number", "email", "has_github"},
 			Properties: map[string]*genai.Schema{
-				"first_name":   {Type: genai.TypeString},
-				"middle_name":  {Type: genai.TypeString},
-				"last_name":    {Type: genai.TypeString},
-				"phone_number": {Type: genai.TypeString},
-				"email":        {Type: genai.TypeString},
+				"first_name":   strSchema,
+				"middle_name":  strSchema,
+				"last_name":    strSchema,
+				"phone_number": strSchema,
+				"email":        strSchema,
 				"has_github":   {Type: genai.TypeBoolean},
 			},
 		},

@@ -7,11 +7,10 @@ import (
 )
 
 func InitDB(db *sql.DB) error {
-	// check if key tables exist
 	var exists bool
 	err := db.QueryRow(`
 		SELECT EXISTS (
-			SELECT FROM information_schema.tables 
+			SELECT FROM information_schema.tables
 			WHERE table_schema = 'public' AND table_name = 'job_roles'
 		);
 	`).Scan(&exists)
@@ -64,7 +63,7 @@ func InitDB(db *sql.DB) error {
 		interview_date TIMESTAMP,
 		meeting_link TEXT,
 		feedback TEXT,
-		outcome TEXT, 
+		outcome TEXT,
 		created_at TIMESTAMP DEFAULT NOW()
 	);
 
@@ -74,7 +73,15 @@ func InitDB(db *sql.DB) error {
 		from_stage INT REFERENCES stages(id),
 		to_stage INT REFERENCES stages(id),
 		changed_by TEXT,
-		changed_at TIMESTAMP DEFAULT NOW() 
+		changed_at TIMESTAMP DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS notes (
+		id SERIAL PRIMARY KEY,
+		application_id INT REFERENCES application(id) ON DELETE CASCADE,
+		content TEXT NOT NULL,
+		created_by TEXT,
+		created_at TIMESTAMP DEFAULT NOW()
 	);
 	`
 
@@ -89,23 +96,56 @@ func InitDB(db *sql.DB) error {
 
 func runMigrations(db *sql.DB) error {
 	migrations := []struct {
+		name  string
 		check string
 		apply string
 	}{
 		{
-			check: `SELECT 1 FROM information_schema.columns WHERE table_name='application' AND column_name='first_name'`,
-			apply: `ALTER TABLE application ADD COLUMN first_name TEXT, ADD COLUMN middle_name TEXT, ADD COLUMN last_name TEXT, ADD COLUMN has_github BOOLEAN DEFAULT FALSE`,
+			name:  "add first_name to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='first_name')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS first_name TEXT`,
+		},
+		{
+			name:  "add middle_name to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='middle_name')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS middle_name TEXT`,
+		},
+		{
+			name:  "add last_name to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='last_name')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS last_name TEXT`,
+		},
+		{
+			name:  "add has_github to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='has_github')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS has_github BOOLEAN DEFAULT FALSE`,
+		},
+		{
+			name:  "create notes table",
+			check: `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='notes')`,
+			apply: `CREATE TABLE IF NOT EXISTS notes (
+				id SERIAL PRIMARY KEY,
+				application_id INT REFERENCES application(id) ON DELETE CASCADE,
+				content TEXT NOT NULL,
+				created_by TEXT,
+				created_at TIMESTAMP DEFAULT NOW()
+			)`,
 		},
 	}
 
 	for _, m := range migrations {
-		var exists int
-		if err := db.QueryRow(m.check).Scan(&exists); err == sql.ErrNoRows {
-			if _, err := db.Exec(m.apply); err != nil {
-				return fmt.Errorf("migration failed: %w", err)
-			}
-			fmt.Println("INFO: Migration applied:", m.apply[:40])
+		var exists bool
+		if err := db.QueryRow(m.check).Scan(&exists); err != nil {
+			return fmt.Errorf("migration check failed for %s: %w", m.name, err)
+		}
+		if exists {
+			continue
+		}
+		fmt.Printf("INFO: Running migration: %s\n", m.name)
+		if _, err := db.Exec(m.apply); err != nil {
+			return fmt.Errorf("migration failed for %s: %w", m.name, err)
 		}
 	}
+
 	return nil
 }

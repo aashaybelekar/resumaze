@@ -45,8 +45,8 @@ func parseWithGroq(apiKey string, text string) (*ResumeData, error) {
 			Type string `json:"type"`
 		}{Type: "json_object"},
 		Stream:          false,
-		MaxTokens:       300,
-		Temperature:     1,
+		MaxTokens:       512,
+		Temperature:     0.1,
 		ReasoningEffort: "medium",
 	}
 

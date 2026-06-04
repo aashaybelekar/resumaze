@@ -108,3 +108,33 @@ func DeleteFromDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service
 
 	c.JSON(http.StatusOK, gin.H{"message": "candidate archived"})
 }
+
+func ListArchivedHandler(c *gin.Context, database *sql.DB) {
+	resumes, err := db.ListArchivedResumes(database)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resumes)
+}
+
+func PermanentDeleteHandler(c *gin.Context, database *sql.DB, srv *drive.Service) {
+	idStr := c.Param("id")
+	applicationID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resume ID"})
+		return
+	}
+
+	driveFileID, err := db.HardDeleteResume(database, applicationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := gdrive.DeleteFile(srv, driveFileID); err != nil {
+		log.Printf("DB record deleted but drive delete failed for file %s: %v", driveFileID, err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "candidate permanently deleted"})
+}

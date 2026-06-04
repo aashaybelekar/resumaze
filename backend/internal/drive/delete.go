@@ -34,6 +34,10 @@ func MoveToDeleted(srv *drive.Service, fileID, parentFolderID string) (*drive.Fi
 	return updated, nil
 }
 
+func DeleteFile(srv *drive.Service, fileID string) error {
+	return srv.Files.Delete(fileID).Do()
+}
+
 func getOrCreateDeletedFolder(srv *drive.Service, parentFolderID string) (string, error) {
 	query := fmt.Sprintf(
 		"mimeType='application/vnd.google-apps.folder' and name='deleted' and '%s' in parents and trashed=false",

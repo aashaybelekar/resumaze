@@ -664,6 +664,40 @@ func DeleteResume(db *sql.DB, applicationID int) (string, error) {
 	return driveFileID, err
 }
 
+func HardDeleteResume(db *sql.DB, applicationID int) (string, error) {
+	var driveFileID string
+	err := db.QueryRow(`SELECT drive_file_id FROM application WHERE id=$1`, applicationID).Scan(&driveFileID)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("resume not found")
+	}
+	if err != nil {
+		return "", err
+	}
+	_, err = db.Exec(`DELETE FROM application WHERE id=$1`, applicationID)
+	return driveFileID, err
+}
+
+func ListArchivedResumes(db *sql.DB) ([]Resume, error) {
+	rows, err := db.Query(resumeSelectBase + `WHERE s.name = 'Archive' ORDER BY a.uploaded_time DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resumes []Resume
+	for rows.Next() {
+		r, err := scanResume(rows)
+		if err != nil {
+			return nil, err
+		}
+		resumes = append(resumes, r)
+	}
+	if resumes == nil {
+		resumes = []Resume{}
+	}
+	return resumes, nil
+}
+
 func CreateJobRole(db *sql.DB, name string) (bool, error) {
 	var id int
 	err := db.QueryRow(`SELECT id FROM job_roles WHERE name=$1`, name).Scan(&id)

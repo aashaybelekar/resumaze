@@ -106,5 +106,5 @@ func DeleteFromDriveHandler(c *gin.Context, database *sql.DB, srv *drive.Service
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "resume moved to deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "candidate archived"})
 }

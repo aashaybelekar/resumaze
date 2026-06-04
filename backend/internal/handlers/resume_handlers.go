@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"net/http"
 	"strconv"
 
@@ -10,12 +11,43 @@ import (
 )
 
 func ListResumesHandler(c *gin.Context, dbClient *sql.DB) {
-	resumes, err := db.ListResumes(dbClient)
+	f := db.ResumeFilter{
+		Search: c.Query("search"),
+		Stage:  c.Query("stage"),
+		Role:   c.Query("role"),
+	}
+
+	if hg := c.Query("has_github"); hg == "true" {
+		v := true
+		f.HasGithub = &v
+	} else if hg == "false" {
+		v := false
+		f.HasGithub = &v
+	}
+
+	if p, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && p > 0 {
+		f.Page = p
+	} else {
+		f.Page = 1
+	}
+	if l, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil && l > 0 {
+		f.Limit = l
+	} else {
+		f.Limit = 20
+	}
+
+	resumes, total, err := db.ListResumesFiltered(dbClient, f)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, resumes)
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":  resumes,
+		"total": total,
+		"page":  f.Page,
+		"limit": f.Limit,
+	})
 }
 
 func ChangeApplicationStageHandler(c *gin.Context, dbClient *sql.DB) {
@@ -88,4 +120,78 @@ func CreateResumeHandler(c *gin.Context, dbClient *sql.DB) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{"message": "Resume already exists"})
 	}
+}
+
+func BulkStageChangeHandler(c *gin.Context, dbClient *sql.DB) {
+	var req struct {
+		IDs   []int  `json:"ids"`
+		Stage string `json:"stage"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+		return
+	}
+	if len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids must not be empty"})
+		return
+	}
+
+	count, err := db.BulkChangeApplicationStage(dbClient, req.IDs, req.Stage)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"updated": count})
+}
+
+func ExportResumesCSVHandler(c *gin.Context, dbClient *sql.DB) {
+	f := db.ResumeFilter{
+		Search: c.Query("search"),
+		Stage:  c.Query("stage"),
+		Role:   c.Query("role"),
+		Page:   1,
+		Limit:  100,
+	}
+	if hg := c.Query("has_github"); hg == "true" {
+		v := true
+		f.HasGithub = &v
+	} else if hg == "false" {
+		v := false
+		f.HasGithub = &v
+	}
+
+	var all []db.Resume
+	for {
+		batch, _, err := db.ListResumesFiltered(dbClient, f)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		all = append(all, batch...)
+		if len(batch) < f.Limit {
+			break
+		}
+		f.Page++
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", `attachment; filename="candidates.csv"`)
+
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"ID", "FirstName", "MiddleName", "LastName", "Email", "Phone", "HasGithub", "Stage", "Role"})
+	for _, r := range all {
+		_ = w.Write([]string{
+			strconv.Itoa(r.ID),
+			r.FirstName,
+			r.MiddleName,
+			r.LastName,
+			r.Email,
+			r.Phone,
+			strconv.FormatBool(r.HasGithub),
+			r.Stage,
+			r.Role,
+		})
+	}
+	w.Flush()
 }

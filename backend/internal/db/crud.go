@@ -765,7 +765,32 @@ func DeleteJobRole(db *sql.DB, jobRole string) error {
 	return err
 }
 
-func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, firstName string, middleName string, lastName string, phoneNumber string, email string, hasGithub bool) error {
+func GetResumeByID(db *sql.DB, id int) (*Resume, error) {
+	rows, err := db.Query(resumeSelectBase+"WHERE a.id = $1", id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if rows.Next() {
+		r, err := scanResume(rows)
+		if err != nil {
+			return nil, err
+		}
+		return &r, nil
+	}
+	return nil, sql.ErrNoRows
+}
+
+func UpdateApplicationDetails(db *sql.DB, id int, firstName, middleName, lastName, email, phone string) error {
+	_, err := db.Exec(`
+		UPDATE application
+		SET first_name=$2, middle_name=$3, last_name=$4, email=$5, phone_number=$6
+		WHERE id=$1
+	`, id, firstName, middleName, lastName, email, phone)
+	return err
+}
+
+func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, firstName string, middleName string, lastName string, phoneNumber string, email string, hasGithub bool, experienceYears int) error {
 	_, err := db.Exec(`
 		UPDATE application
 		SET first_name = $2,
@@ -773,8 +798,9 @@ func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, firstName s
 			last_name = $4,
 			phone_number = $5,
 			email = $6,
-			has_github = $7
+			has_github = $7,
+			experience_years = $8
 		WHERE drive_file_id = $1
-	`, driveFileID, firstName, middleName, lastName, phoneNumber, email, hasGithub)
+	`, driveFileID, firstName, middleName, lastName, phoneNumber, email, hasGithub, experienceYears)
 	return err
 }

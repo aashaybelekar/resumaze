@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -120,6 +121,48 @@ func CreateResumeHandler(c *gin.Context, dbClient *sql.DB) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{"message": "Resume already exists"})
 	}
+}
+
+func GetResumeHandler(c *gin.Context, dbClient *sql.DB) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ID"})
+		return
+	}
+	r, err := db.GetResumeByID(dbClient, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, r)
+}
+
+func UpdateResumeDetailsHandler(c *gin.Context, dbClient *sql.DB) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ID"})
+		return
+	}
+	var req struct {
+		FirstName  string `json:"first_name"`
+		MiddleName string `json:"middle_name"`
+		LastName   string `json:"last_name"`
+		Email      string `json:"email"`
+		Phone      string `json:"phone"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+	if err := db.UpdateApplicationDetails(dbClient, id, req.FirstName, req.MiddleName, req.LastName, req.Email, req.Phone); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "updated"})
 }
 
 func BulkStageChangeHandler(c *gin.Context, dbClient *sql.DB) {

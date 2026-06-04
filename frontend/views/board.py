@@ -5,7 +5,7 @@ import api
 from state import load_data, refresh_data
 
 def render():
-    st.title("🚀 Resume Board")
+    st.title("Resume Board")
 
     if 'stages' not in st.session_state:
         load_data()
@@ -28,7 +28,7 @@ def render():
     try:
         for row in resumes_data:
             resume_id_str = str(row["id"])
-            job_role = row.get("job_role", "")
+            job_role = row.get("role", "")
             stage = row.get("stage", "")
             parts = [row.get("first_name", ""), row.get("middle_name", ""), row.get("last_name", "")]
             display_name = " ".join(p for p in parts if p) or f"Candidate #{resume_id_str}"
@@ -46,6 +46,22 @@ def render():
         st.error(f"Failed to parse resume data. (Error: {e})")
         st.json(resumes_data)
         return
+
+    # Bulk stage change
+    with st.expander("Bulk Move Candidates"):
+        all_ids = list(resume_map.keys())
+        selected_ids = st.multiselect(
+            "Select candidates",
+            options=all_ids,
+            format_func=lambda rid: f"{resume_map[rid]['name']} (ID:{rid})"
+        )
+        bulk_target_stage = st.selectbox("Move selected to stage", options=stage_names, key="bulk_stage_select")
+        if st.button("Apply Bulk Move", disabled=not selected_ids):
+            int_ids = [int(rid) for rid in selected_ids]
+            count = api.bulk_stage_change(int_ids, bulk_target_stage)
+            if count is not None:
+                st.success(f"Moved {count} candidate(s) to {bulk_target_stage}")
+                refresh_data('resumes')
 
     st.subheader("Drag and drop candidates to their new stage")
 
@@ -71,7 +87,7 @@ def render():
 
             new_items_by_stage[stage_name] = [card_to_id_map[card] for card in sorted_cards]
 
-    # Process Moves
+    # Process moves
     for stage_name, new_ids in new_items_by_stage.items():
         original_ids = set(items_by_stage[stage_name])
         for resume_id_str in new_ids:

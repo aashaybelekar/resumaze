@@ -12,18 +12,19 @@ import (
 
 // Resume is the canonical application record returned by list/filter queries.
 type Resume struct {
-	ID            int    `json:"id"`
-	DriveFileID   string `json:"drive_file_id"`
-	DriveFileName string `json:"drive_file_name"`
-	FirstName     string `json:"first_name"`
-	MiddleName    string `json:"middle_name"`
-	LastName      string `json:"last_name"`
-	Email         string `json:"email"`
-	Phone         string `json:"phone"`
-	HasGithub     bool   `json:"has_github"`
-	Stage         string `json:"stage"`
-	Role          string `json:"role"`
-	UploadedTime  string `json:"uploaded_time"`
+	ID              int    `json:"id"`
+	DriveFileID     string `json:"drive_file_id"`
+	DriveFileName   string `json:"drive_file_name"`
+	FirstName       string `json:"first_name"`
+	MiddleName      string `json:"middle_name"`
+	LastName        string `json:"last_name"`
+	Email           string `json:"email"`
+	Phone           string `json:"phone"`
+	HasGithub       bool   `json:"has_github"`
+	ExperienceYears int    `json:"experience_years"`
+	Stage           string `json:"stage"`
+	Role            string `json:"role"`
+	UploadedTime    string `json:"uploaded_time"`
 }
 
 type ResumeFilter struct {
@@ -82,7 +83,7 @@ type Note struct {
 const resumeSelectBase = `
 	SELECT a.id, a.drive_file_id, a.drive_file_name,
 	       a.first_name, a.middle_name, a.last_name,
-	       a.email, a.phone_number, a.has_github,
+	       a.email, a.phone_number, a.has_github, a.experience_years,
 	       s.name, j.name, a.uploaded_time
 	FROM application a
 	LEFT JOIN stages s ON a.current_stage_id = s.id
@@ -93,12 +94,13 @@ func scanResume(rows *sql.Rows) (Resume, error) {
 	var r Resume
 	var firstName, middleName, lastName, email, phone sql.NullString
 	var hasGithub sql.NullBool
+	var experienceYears sql.NullInt64
 	var stage, role sql.NullString
 	var uploadedTime sql.NullTime
 	err := rows.Scan(
 		&r.ID, &r.DriveFileID, &r.DriveFileName,
 		&firstName, &middleName, &lastName,
-		&email, &phone, &hasGithub,
+		&email, &phone, &hasGithub, &experienceYears,
 		&stage, &role, &uploadedTime,
 	)
 	if err != nil {
@@ -110,6 +112,7 @@ func scanResume(rows *sql.Rows) (Resume, error) {
 	r.Email = email.String
 	r.Phone = phone.String
 	r.HasGithub = hasGithub.Bool
+	r.ExperienceYears = int(experienceYears.Int64)
 	r.Stage = stage.String
 	r.Role = role.String
 	if uploadedTime.Valid {

@@ -29,12 +29,13 @@ var (
 )
 
 type ResumeData struct {
-	FirstName   string `json:"first_name"`
-	MiddleName  string `json:"middle_name"`
-	LastName    string `json:"last_name"`
-	PhoneNumber string `json:"phone_number"`
-	Email       string `json:"email"`
-	HasGithub   bool   `json:"has_github"`
+	FirstName       string `json:"first_name"`
+	MiddleName      string `json:"middle_name"`
+	LastName        string `json:"last_name"`
+	PhoneNumber     string `json:"phone_number"`
+	Email           string `json:"email"`
+	HasGithub       bool   `json:"has_github"`
+	ExperienceYears int    `json:"experience_years"`
 }
 
 const resumePrompt = `
@@ -46,7 +47,8 @@ You are a resume parser. Extract the following fields from the resume text and r
   "last_name": string,
   "phone_number": string,
   "email": string,
-  "has_github": boolean
+  "has_github": boolean,
+  "experience_years": number
 }
 
 Rules:
@@ -55,6 +57,7 @@ Rules:
 - "phone_number": the candidate's phone number. It may include a country code (e.g. +91, +1), dashes, spaces, or dots — return it exactly as it appears. Common patterns: +91-9900723962, +1 (555) 123-4567, 9900723962. The phone number is often near the top of the resume next to the email. Ignore any surrounding icon characters (symbols, boxes, unicode garbage) on the same line.
 - "email": the candidate's email address (look for the @ symbol).
 - "has_github": true if a GitHub profile URL (github.com/...) appears anywhere in the text, including in the "Links found in document" section at the bottom. Otherwise false.
+- "experience_years": total years of professional work experience as an integer. Sum up the durations of all job positions listed in the experience section. If the candidate is a student with no work experience, return 0. If you cannot determine the total, return 0.
 - If a string field is not found, return "" (empty string). Do not return null for any field.
 - Return ONLY the JSON object. No explanation, no markdown, no code fences.
 `
@@ -96,7 +99,7 @@ func ParseResumeDetails(database *sql.DB, fileID string, fileName string, pdfByt
 
 	if err := db.UpdateApplicationWithResumeData(database, fileID,
 		resumeData.FirstName, resumeData.MiddleName, resumeData.LastName,
-		resumeData.PhoneNumber, resumeData.Email, resumeData.HasGithub,
+		resumeData.PhoneNumber, resumeData.Email, resumeData.HasGithub, resumeData.ExperienceYears,
 	); err != nil {
 		log.Printf("failed to update application with resume data for %s: %v", fileName, err)
 		return

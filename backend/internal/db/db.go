@@ -48,6 +48,7 @@ func InitDB(db *sql.DB) error {
 		phone_number TEXT,
 		email TEXT,
 		has_github BOOLEAN DEFAULT FALSE,
+		experience_years INT DEFAULT 0,
 		uploaded_time TIMESTAMP DEFAULT NOW(),
 		uploaded_by TEXT,
 		last_change_time TIMESTAMP DEFAULT NOW(),
@@ -119,6 +120,11 @@ func runMigrations(db *sql.DB) error {
 			name:  "add has_github to application",
 			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='has_github')`,
 			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS has_github BOOLEAN DEFAULT FALSE`,
+		},
+		{
+			name:  "add experience_years to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='experience_years')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS experience_years INT DEFAULT 0`,
 		},
 		{
 			name:  "create notes table",

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { DropResult } from '@hello-pangea/dnd';
 import { Search, RefreshCw } from 'lucide-react';
 import { Resume, getResumes, getStages, getJobRoles, updateResumeStage } from '@/lib/api';
-import KanbanBoard from '@/components/KanbanBoard';
 import CandidateDrawer from '@/components/CandidateDrawer';
+
+const KanbanBoard = dynamic(() => import('@/components/KanbanBoard'), { ssr: false });
 
 export default function PipelinePage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
@@ -63,27 +65,40 @@ export default function PipelinePage() {
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
-    const { draggableId, destination } = result;
+    const { draggableId, source, destination } = result;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
     const resumeId = parseInt(draggableId);
     const newStage = destination.droppableId;
 
-    const resume = resumes.find((r) => r.id === resumeId);
-    if (!resume || resume.stage === newStage) return;
+    const draggedResume = resumes.find((r) => r.id === resumeId);
+    if (!draggedResume) return;
 
-    // Optimistic update
-    setResumes((prev) =>
-      prev.map((r) => (r.id === resumeId ? { ...r, stage: newStage } : r))
-    );
-    // Update selected candidate if it's the one being moved
-    setSelectedCandidate((prev) => prev?.id === resumeId ? { ...prev, stage: newStage } : prev);
+    const oldResumes = resumes;
+    const updatedDragged = { ...draggedResume, stage: newStage };
+
+    // Remove dragged card from the flat list, then splice it into the right spot
+    const next = resumes.filter((r) => r.id !== resumeId);
+    const destCards = next.filter((r) => r.stage === newStage && !isArchive(r.stage));
+
+    if (destination.index >= destCards.length) {
+      // Append after the last card of the destination column
+      const lastCard = destCards[destCards.length - 1];
+      const insertAt = lastCard ? next.findIndex((r) => r.id === lastCard.id) + 1 : next.length;
+      next.splice(insertAt, 0, updatedDragged);
+    } else {
+      // Insert before the card currently at destination.index
+      const targetCard = destCards[destination.index];
+      next.splice(next.findIndex((r) => r.id === targetCard.id), 0, updatedDragged);
+    }
+
+    setResumes(next);
+    setSelectedCandidate((prev) => prev?.id === resumeId ? updatedDragged : prev);
 
     try {
       await updateResumeStage(resumeId, newStage);
     } catch {
-      // Revert on error
-      setResumes((prev) =>
-        prev.map((r) => (r.id === resumeId ? { ...r, stage: resume.stage } : r))
-      );
+      setResumes(oldResumes);
     }
   };
 

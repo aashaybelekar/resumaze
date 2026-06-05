@@ -501,7 +501,13 @@ func CreateStage(db *sql.DB, name string) (bool, error) {
 	var id int
 	err := db.QueryRow(`SELECT id FROM stages WHERE name = $1`, name).Scan(&id)
 	if err == sql.ErrNoRows {
-		_, err := db.Exec(`INSERT INTO stages (name) VALUES ($1)`, name)
+		var maxPos sql.NullInt64
+		_ = db.QueryRow(`SELECT MAX(position) FROM stages`).Scan(&maxPos)
+		nextPos := int64(1)
+		if maxPos.Valid {
+			nextPos = maxPos.Int64 + 1
+		}
+		_, err := db.Exec(`INSERT INTO stages (name, position) VALUES ($1, $2)`, name, nextPos)
 		if err != nil {
 			return false, err
 		}
@@ -513,7 +519,7 @@ func CreateStage(db *sql.DB, name string) (bool, error) {
 }
 
 func ListStages(db *sql.DB) ([]string, error) {
-	rows, err := db.Query(`SELECT name FROM stages`)
+	rows, err := db.Query(`SELECT name FROM stages ORDER BY COALESCE(position, id)`)
 	if err != nil {
 		return nil, err
 	}
@@ -529,6 +535,23 @@ func ListStages(db *sql.DB) ([]string, error) {
 	}
 
 	return stages, nil
+}
+
+func ReorderStages(db *sql.DB, names []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for i, name := range names {
+		_, err := tx.Exec(`UPDATE stages SET position=$1 WHERE name=$2`, i+1, name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func DeleteStage(db *sql.DB, stageName string) error {
@@ -579,7 +602,7 @@ func ChangeApplicationStage(db *sql.DB, applicationID int, stageName string) err
 		return err
 	}
 
-	result, err := db.Exec(`UPDATE application SET current_stage_id=$1 WHERE drive_file_id=$2`, stageID, applicationID)
+	result, err := db.Exec(`UPDATE application SET current_stage_id=$1 WHERE id=$2`, stageID, applicationID)
 	if err != nil {
 		return err
 	}

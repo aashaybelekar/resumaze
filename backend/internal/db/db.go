@@ -33,7 +33,8 @@ func InitDB(db *sql.DB) error {
 
 	CREATE TABLE IF NOT EXISTS stages (
 		id SERIAL PRIMARY KEY,
-		name TEXT NOT NULL UNIQUE
+		name TEXT NOT NULL UNIQUE,
+		position INT
 	);
 
 	CREATE TABLE IF NOT EXISTS application (
@@ -136,6 +137,11 @@ func runMigrations(db *sql.DB) error {
 				created_by TEXT,
 				created_at TIMESTAMP DEFAULT NOW()
 			)`,
+		},
+		{
+			name:  "add position to stages",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='stages' AND column_name='position')`,
+			apply: `ALTER TABLE stages ADD COLUMN IF NOT EXISTS position INT; UPDATE stages SET position = id WHERE position IS NULL`,
 		},
 	}
 

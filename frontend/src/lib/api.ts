@@ -103,6 +103,13 @@ export async function deleteStage(name: string): Promise<void> {
   });
 }
 
+export async function reorderStages(names: string[]): Promise<void> {
+  await fetchJSON(`${BASE_URL}/stage/reorder`, {
+    method: 'PUT',
+    body: JSON.stringify({ names }),
+  });
+}
+
 // Job Roles
 export async function getJobRoles(): Promise<string[]> {
   return fetchJSON(`${BASE_URL}/jobrole`);

@@ -54,3 +54,20 @@ func DeleteStageHandler(c *gin.Context, dbClient *sql.DB) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Stage deleted"})
 }
+
+func ReorderStagesHandler(c *gin.Context, dbClient *sql.DB) {
+	var req struct {
+		Names []string `json:"names"`
+	}
+	if err := c.BindJSON(&req); err != nil || len(req.Names) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if err := db.ReorderStages(dbClient, req.Names); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Stages reordered"})
+}

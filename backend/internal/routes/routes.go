@@ -18,6 +18,7 @@ func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 		api.POST("/stage", func(c *gin.Context) { handlers.CreateStageHandler(c, db) })
 		api.GET("/stage", func(c *gin.Context) { handlers.ListStagesHandler(c, db) })
 		api.DELETE("/stage/:name", func(c *gin.Context) { handlers.DeleteStageHandler(c, db) })
+		api.PUT("/stage/reorder", func(c *gin.Context) { handlers.ReorderStagesHandler(c, db) })
 
 		api.POST("/jobrole", func(c *gin.Context) { handlers.CreateJobRoleHandler(c, db) })
 		api.GET("/jobrole", func(c *gin.Context) { handlers.ListJobRolesHandler(c, db) })

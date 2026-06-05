@@ -54,13 +54,14 @@ export default function CandidatesPage() {
   }, [load]);
 
   const handleDelete = async (id: number) => {
+    const removed = resumes.find((r) => r.id === id);
+    setResumes((prev) => prev.filter((r) => r.id !== id));
+    setSelectedIds((prev) => prev.filter((i) => i !== id));
+    if (selectedCandidate?.id === id) setSelectedCandidate(null);
     try {
       await deleteResume(id);
-      setResumes((prev) => prev.filter((r) => r.id !== id));
-      setSelectedIds((prev) => prev.filter((i) => i !== id));
-      if (selectedCandidate?.id === id) setSelectedCandidate(null);
     } catch {
-      // table will show nothing — could surface a toast here
+      if (removed) setResumes((prev) => [...prev, removed]);
     }
   };
 

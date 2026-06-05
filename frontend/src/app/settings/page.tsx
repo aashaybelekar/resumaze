@@ -9,11 +9,14 @@ import {
   Copy,
   Mail,
   AlertTriangle,
+  GripVertical,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
   getStages,
   createStage,
   deleteStage,
+  reorderStages,
   getJobRoles,
   createJobRole,
   deleteJobRole,
@@ -36,6 +39,7 @@ export default function SettingsPage() {
 
   const [stageError, setStageError] = useState('');
   const [roleError, setRoleError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +56,7 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     load();
   }, []);
 
@@ -85,6 +90,20 @@ export default function SettingsPage() {
       setStages((prev) => prev.filter((s) => s !== name));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete stage');
+    }
+  };
+
+  const handleStageDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+    const nonArchive = stages.filter((s) => s.toLowerCase() !== 'archive');
+    const reordered = Array.from(nonArchive);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    setStages(reordered);
+    try {
+      await reorderStages(reordered);
+    } catch {
+      setStages(stages);
     }
   };
 
@@ -181,29 +200,56 @@ export default function SettingsPage() {
               <div className="text-sm text-slate-400 py-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
                 No stages yet. Add your first stage above.
               </div>
-            ) : (
+            ) : !mounted ? (
               <div className="space-y-2">
                 {stages.filter((s) => s.toLowerCase() !== 'archive').map((stage) => (
-                  <div
-                    key={stage}
-                    className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200"
-                  >
+                  <div key={stage} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium border ${stageColor(stage)}`}
-                      >
-                        {stage}
-                      </span>
+                      <GripVertical className="w-4 h-4 text-slate-300" />
+                      <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium border ${stageColor(stage)}`}>{stage}</span>
                     </div>
-                    <button
-                      onClick={() => handleDeleteStage(stage)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => handleDeleteStage(stage)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
+            ) : (
+              <DragDropContext onDragEnd={handleStageDragEnd}>
+                <Droppable droppableId="stages">
+                  {(provided) => (
+                    <div className="space-y-2" ref={provided.innerRef} {...provided.droppableProps}>
+                      {stages.filter((s) => s.toLowerCase() !== 'archive').map((stage, index) => (
+                        <Draggable key={stage} draggableId={stage} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 ${snapshot.isDragging ? 'shadow-md opacity-90' : ''}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing">
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium border ${stageColor(stage)}`}
+                                >
+                                  {stage}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteStage(stage)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </div>
 

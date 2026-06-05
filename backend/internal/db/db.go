@@ -85,6 +85,24 @@ func InitDB(db *sql.DB) error {
 		created_by TEXT,
 		created_at TIMESTAMP DEFAULT NOW()
 	);
+
+	CREATE TABLE IF NOT EXISTS users (
+		id SERIAL PRIMARY KEY,
+		google_id TEXT NOT NULL UNIQUE,
+		email TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		picture TEXT,
+		role TEXT NOT NULL DEFAULT 'user',
+		created_at TIMESTAMP DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS refresh_tokens (
+		id SERIAL PRIMARY KEY,
+		user_id INT REFERENCES users(id) ON DELETE CASCADE,
+		token_hash TEXT NOT NULL UNIQUE,
+		expires_at TIMESTAMP NOT NULL,
+		created_at TIMESTAMP DEFAULT NOW()
+	);
 	`
 
 	_, err = db.Exec(schema)
@@ -142,6 +160,30 @@ func runMigrations(db *sql.DB) error {
 			name:  "add position to stages",
 			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='stages' AND column_name='position')`,
 			apply: `ALTER TABLE stages ADD COLUMN IF NOT EXISTS position INT; UPDATE stages SET position = id WHERE position IS NULL`,
+		},
+		{
+			name:  "create users table",
+			check: `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='users')`,
+			apply: `CREATE TABLE IF NOT EXISTS users (
+				id SERIAL PRIMARY KEY,
+				google_id TEXT NOT NULL UNIQUE,
+				email TEXT NOT NULL UNIQUE,
+				name TEXT NOT NULL,
+				picture TEXT,
+				role TEXT NOT NULL DEFAULT 'user',
+				created_at TIMESTAMP DEFAULT NOW()
+			)`,
+		},
+		{
+			name:  "create refresh_tokens table",
+			check: `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='refresh_tokens')`,
+			apply: `CREATE TABLE IF NOT EXISTS refresh_tokens (
+				id SERIAL PRIMARY KEY,
+				user_id INT REFERENCES users(id) ON DELETE CASCADE,
+				token_hash TEXT NOT NULL UNIQUE,
+				expires_at TIMESTAMP NOT NULL,
+				created_at TIMESTAMP DEFAULT NOW()
+			)`,
 		},
 	}
 

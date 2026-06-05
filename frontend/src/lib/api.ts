@@ -67,6 +67,7 @@ export interface ResumeFilters {
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -196,6 +197,7 @@ export async function uploadResumes(
 
   const response = await fetch(`${BASE_URL}/resume/upload`, {
     method: 'POST',
+    credentials: 'include',
     body: formData,
   });
   if (!response.ok) {
@@ -281,4 +283,27 @@ export async function deleteNote(id: number): Promise<void> {
   await fetchJSON(`${BASE_URL}/note/${id}`, {
     method: 'DELETE',
   });
+}
+
+// Auth
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  picture: string;
+  role: 'admin' | 'user';
+}
+
+export async function getMe(): Promise<User> {
+  return fetchJSON(`${BASE_URL}/auth/me`);
+}
+
+export async function logout(): Promise<void> {
+  await fetchJSON(`${BASE_URL}/auth/logout`, { method: 'POST' });
+}
+
+export function getGoogleLoginUrl(): string {
+  // BASE_URL may be http://localhost:8080/api/v1 — strip the /api/v1 suffix if present
+  const serverRoot = BASE_URL.replace(/\/api\/v1$/, '');
+  return `${serverRoot}/api/v1/auth/google`;
 }

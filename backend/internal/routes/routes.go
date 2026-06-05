@@ -2,7 +2,9 @@ package routes
 
 import (
 	"database/sql"
+	"os"
 
+	"github.com/aashaybelekar/resumaze/internal/auth"
 	"github.com/aashaybelekar/resumaze/internal/handlers"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -11,10 +13,27 @@ import (
 
 func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 	router := gin.Default()
-	router.Use(cors.Default())
 
-	api := router.Group("/api/v1")
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{frontendURL},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowCredentials: true,
+	}))
+
+	// Public auth routes
+	router.GET("/api/v1/auth/google", func(c *gin.Context) { handlers.GoogleLoginHandler(c) })
+	router.GET("/api/v1/auth/google/callback", func(c *gin.Context) { handlers.GoogleCallbackHandler(c, db) })
+
+	api := router.Group("/api/v1", auth.RequireAuth(db))
 	{
+		api.GET("/auth/me", func(c *gin.Context) { handlers.MeHandler(c, db) })
+		api.POST("/auth/logout", func(c *gin.Context) { handlers.LogoutHandler(c, db) })
+
 		api.POST("/stage", func(c *gin.Context) { handlers.CreateStageHandler(c, db) })
 		api.GET("/stage", func(c *gin.Context) { handlers.ListStagesHandler(c, db) })
 		api.DELETE("/stage/:name", func(c *gin.Context) { handlers.DeleteStageHandler(c, db) })
@@ -24,7 +43,6 @@ func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 		api.GET("/jobrole", func(c *gin.Context) { handlers.ListJobRolesHandler(c, db) })
 		api.DELETE("/jobrole/:name", func(c *gin.Context) { handlers.DeleteJobRoleHandler(c, db) })
 
-		// Static resume routes must come before /:id parameterized routes
 		api.POST("/resume/bulk-stage", func(c *gin.Context) { handlers.BulkStageChangeHandler(c, db) })
 		api.GET("/resume/export", func(c *gin.Context) { handlers.ExportResumesCSVHandler(c, db) })
 		api.GET("/resume/duplicates", func(c *gin.Context) { handlers.GetDuplicatesHandler(c, db) })

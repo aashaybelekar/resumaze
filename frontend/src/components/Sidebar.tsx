@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
@@ -12,8 +12,10 @@ import {
   Briefcase,
   Circle,
   Archive,
+  LogOut,
 } from 'lucide-react';
-import { checkHealth } from '@/lib/api';
+import { checkHealth, logout } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { href: '/pipeline', label: 'Pipeline', icon: LayoutDashboard },
@@ -26,7 +28,19 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, refresh } = useAuth();
   const [healthy, setHealthy] = useState<boolean | null>(null);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // ignore errors — cookies will be cleared server-side regardless
+    }
+    await refresh();
+    router.push('/login');
+  };
 
   useEffect(() => {
     checkHealth()
@@ -72,7 +86,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Health indicator */}
-      <div className="px-5 py-4 border-t border-slate-700">
+      <div className="px-5 py-3 border-t border-slate-700">
         <div className="flex items-center gap-2">
           <Circle
             className={`w-2.5 h-2.5 fill-current ${
@@ -89,6 +103,39 @@ export default function Sidebar() {
           </span>
         </div>
       </div>
+
+      {/* User info + logout */}
+      {user && (
+        <div className="px-4 py-4 border-t border-slate-700">
+          <div className="flex items-center gap-3 mb-3">
+            {user.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-xs font-semibold">
+                  {user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-slate-200 text-sm font-medium truncate">{user.name}</p>
+              <p className="text-slate-400 text-xs truncate">{user.email}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            Sign out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

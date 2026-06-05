@@ -29,11 +29,16 @@ func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 	router.GET("/api/v1/auth/google", func(c *gin.Context) { handlers.GoogleLoginHandler(c) })
 	router.GET("/api/v1/auth/google/callback", func(c *gin.Context) { handlers.GoogleCallbackHandler(c, db) })
 
-	api := router.Group("/api/v1", auth.RequireAuth(db))
+	// Authenticated but approval not required (so unapproved users can check status and logout)
+	authOnly := router.Group("/api/v1", auth.RequireAuth(db))
 	{
-		api.GET("/auth/me", func(c *gin.Context) { handlers.MeHandler(c, db) })
-		api.POST("/auth/logout", func(c *gin.Context) { handlers.LogoutHandler(c, db) })
+		authOnly.GET("/auth/me", func(c *gin.Context) { handlers.MeHandler(c, db) })
+		authOnly.POST("/auth/logout", func(c *gin.Context) { handlers.LogoutHandler(c, db) })
+	}
 
+	// Authenticated + approved
+	api := router.Group("/api/v1", auth.RequireAuth(db), auth.RequireApproved())
+	{
 		api.POST("/stage", func(c *gin.Context) { handlers.CreateStageHandler(c, db) })
 		api.GET("/stage", func(c *gin.Context) { handlers.ListStagesHandler(c, db) })
 		api.DELETE("/stage/:name", func(c *gin.Context) { handlers.DeleteStageHandler(c, db) })
@@ -70,6 +75,14 @@ func SetupRouter(db *sql.DB, srv *drive.Service) *gin.Engine {
 		api.GET("/analytics", func(c *gin.Context) { handlers.GetAnalyticsHandler(c, db) })
 
 		api.GET("/health", func(c *gin.Context) { handlers.HealthCheck(c) })
+
+		// Admin-only user management
+		adminRoutes := api.Group("", auth.RequireAdmin())
+		{
+			adminRoutes.GET("/users", func(c *gin.Context) { handlers.GetUsersHandler(c, db) })
+			adminRoutes.PUT("/users/:id/approved", func(c *gin.Context) { handlers.UpdateUserApprovedHandler(c, db) })
+			adminRoutes.PUT("/users/:id/role", func(c *gin.Context) { handlers.UpdateUserRoleHandler(c, db) })
+		}
 	}
 
 	return router

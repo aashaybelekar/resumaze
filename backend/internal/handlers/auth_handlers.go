@@ -19,15 +19,14 @@ func googleOAuthConfig() *oauth2.Config {
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
-		Scopes:       []string{"openid", "email", "profile"},
+		Scopes:       []string{"openid", "email", "profile", "https://www.googleapis.com/auth/calendar.events"},
 		Endpoint:     google.Endpoint,
 	}
 }
 
 func GoogleLoginHandler(c *gin.Context) {
 	cfg := googleOAuthConfig()
-	// Use a fixed state for simplicity (production: use CSRF state)
-	url := cfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	url := cfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
@@ -70,12 +69,16 @@ func GoogleCallbackHandler(c *gin.Context, database *sql.DB) {
 		return
 	}
 
-	accessToken, err := auth.CreateAccessToken(user.ID, user.Role)
+	if token.RefreshToken != "" || token.AccessToken != "" {
+		_ = dbpkg.UpsertUserGoogleToken(database, user.ID, token.AccessToken, token.RefreshToken, token.Expiry)
+	}
+
+	accessToken, err := auth.CreateAccessToken(user.ID, user.Role, user.Approved)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "token error"})
 		return
 	}
-	refreshToken, refreshExpiry, err := auth.CreateRefreshToken(user.ID, user.Role)
+	refreshToken, refreshExpiry, err := auth.CreateRefreshToken(user.ID, user.Role, user.Approved)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "token error"})
 		return
@@ -105,11 +108,13 @@ func MeHandler(c *gin.Context, database *sql.DB) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":      user.ID,
-		"email":   user.Email,
-		"name":    user.Name,
-		"picture": user.Picture,
-		"role":    user.Role,
+		"id":             user.ID,
+		"email":          user.Email,
+		"name":           user.Name,
+		"picture":        user.Picture,
+		"role":           user.Role,
+		"approved":       user.Approved,
+		"is_super_admin": dbpkg.IsSuperAdminEmail(user.Email),
 	})
 }
 

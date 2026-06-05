@@ -22,6 +22,8 @@ type Resume struct {
 	Phone           string `json:"phone"`
 	HasGithub       bool   `json:"has_github"`
 	ExperienceYears int    `json:"experience_years"`
+	CurrentCTC      string `json:"current_ctc"`
+	ExpectedCTC     string `json:"expected_ctc"`
 	Stage           string `json:"stage"`
 	Role            string `json:"role"`
 	UploadedTime    string `json:"uploaded_time"`
@@ -61,15 +63,17 @@ type DuplicateGroup struct {
 }
 
 type Interview struct {
-	ID            int     `json:"id"`
-	CandidateID   int     `json:"candidate_id"`
-	StageID       *int    `json:"stage_id,omitempty"`
-	Interviewer   string  `json:"interviewer"`
-	InterviewDate *string `json:"interview_date,omitempty"`
-	MeetingLink   string  `json:"meeting_link"`
-	Feedback      string  `json:"feedback"`
-	Outcome       string  `json:"outcome"`
-	CreatedAt     string  `json:"created_at"`
+	ID                int     `json:"id"`
+	CandidateID       int     `json:"candidate_id"`
+	StageID           *int    `json:"stage_id,omitempty"`
+	Interviewer       string  `json:"interviewer"`
+	InterviewDate     *string `json:"interview_date,omitempty"`
+	MeetingLink       string  `json:"meeting_link"`
+	Feedback          string  `json:"feedback"`
+	Outcome           string  `json:"outcome"`
+	CreatedAt         string  `json:"created_at"`
+	CalendarEventID   string  `json:"calendar_event_id,omitempty"`
+	CalendarEventLink string  `json:"calendar_event_link,omitempty"`
 }
 
 type Note struct {
@@ -84,6 +88,7 @@ const resumeSelectBase = `
 	SELECT a.id, a.drive_file_id, a.drive_file_name,
 	       a.first_name, a.middle_name, a.last_name,
 	       a.email, a.phone_number, a.has_github, a.experience_years,
+	       a.current_ctc, a.expected_ctc,
 	       s.name, j.name, a.uploaded_time
 	FROM application a
 	LEFT JOIN stages s ON a.current_stage_id = s.id
@@ -95,12 +100,14 @@ func scanResume(rows *sql.Rows) (Resume, error) {
 	var firstName, middleName, lastName, email, phone sql.NullString
 	var hasGithub sql.NullBool
 	var experienceYears sql.NullInt64
+	var currentCTC, expectedCTC sql.NullString
 	var stage, role sql.NullString
 	var uploadedTime sql.NullTime
 	err := rows.Scan(
 		&r.ID, &r.DriveFileID, &r.DriveFileName,
 		&firstName, &middleName, &lastName,
 		&email, &phone, &hasGithub, &experienceYears,
+		&currentCTC, &expectedCTC,
 		&stage, &role, &uploadedTime,
 	)
 	if err != nil {
@@ -113,6 +120,8 @@ func scanResume(rows *sql.Rows) (Resume, error) {
 	r.Phone = phone.String
 	r.HasGithub = hasGithub.Bool
 	r.ExperienceYears = int(experienceYears.Int64)
+	r.CurrentCTC = currentCTC.String
+	r.ExpectedCTC = expectedCTC.String
 	r.Stage = stage.String
 	r.Role = role.String
 	if uploadedTime.Valid {
@@ -399,7 +408,7 @@ func CreateInterview(db *sql.DB, i Interview) (int, error) {
 
 func ListInterviewsByCandidate(db *sql.DB, candidateID int) ([]Interview, error) {
 	rows, err := db.Query(`
-		SELECT id, candidate_id, stage_id, interviewer, interview_date, meeting_link, feedback, outcome, created_at
+		SELECT id, candidate_id, stage_id, interviewer, interview_date, meeting_link, feedback, outcome, created_at, COALESCE(calendar_event_id, ''), COALESCE(calendar_event_link, '')
 		FROM interviews
 		WHERE candidate_id = $1
 		ORDER BY created_at DESC
@@ -416,7 +425,7 @@ func ListInterviewsByCandidate(db *sql.DB, candidateID int) ([]Interview, error)
 		var interviewDate sql.NullTime
 		var interviewer, meetingLink, feedback, outcome sql.NullString
 		var createdAt time.Time
-		if err := rows.Scan(&iv.ID, &iv.CandidateID, &stageID, &interviewer, &interviewDate, &meetingLink, &feedback, &outcome, &createdAt); err != nil {
+		if err := rows.Scan(&iv.ID, &iv.CandidateID, &stageID, &interviewer, &interviewDate, &meetingLink, &feedback, &outcome, &createdAt, &iv.CalendarEventID, &iv.CalendarEventLink); err != nil {
 			return nil, err
 		}
 		if stageID.Valid {
@@ -628,7 +637,7 @@ func ChangeApplicationRole(db *sql.DB, applicationID int, roleName string) error
 		}
 		return err
 	}
-	result, err := db.Exec(`UPDATE application SET job_role_id=$1 WHERE drive_file_id=$2`, roleID, applicationID)
+	result, err := db.Exec(`UPDATE application SET job_role_id=$1 WHERE id=$2`, roleID, applicationID)
 	if err != nil {
 		return err
 	}
@@ -807,13 +816,64 @@ func GetResumeByID(db *sql.DB, id int) (*Resume, error) {
 	return nil, sql.ErrNoRows
 }
 
-func UpdateApplicationDetails(db *sql.DB, id int, firstName, middleName, lastName, email, phone string) error {
+func UpdateApplicationDetails(db *sql.DB, id int, firstName, middleName, lastName, email, phone, currentCTC, expectedCTC string) error {
 	_, err := db.Exec(`
 		UPDATE application
-		SET first_name=$2, middle_name=$3, last_name=$4, email=$5, phone_number=$6
+		SET first_name=$2, middle_name=$3, last_name=$4, email=$5, phone_number=$6,
+		    current_ctc=$7, expected_ctc=$8
 		WHERE id=$1
-	`, id, firstName, middleName, lastName, email, phone)
+	`, id, firstName, middleName, lastName, email, phone, currentCTC, expectedCTC)
 	return err
+}
+
+func SetInterviewCalendarEvent(db *sql.DB, interviewID int, eventID, htmlLink string) error {
+	_, err := db.Exec(`UPDATE interviews SET calendar_event_id=$2, calendar_event_link=$3 WHERE id=$1`, interviewID, eventID, htmlLink)
+	return err
+}
+
+func SetInterviewCalendarInfo(db *sql.DB, interviewID int, eventID, htmlLink, meetLink string) error {
+	_, err := db.Exec(`
+		UPDATE interviews SET calendar_event_id=$2, calendar_event_link=$3, meeting_link=$4 WHERE id=$1
+	`, interviewID, eventID, htmlLink, meetLink)
+	return err
+}
+
+func GetInterviewByID(db *sql.DB, id int) (*Interview, error) {
+	var iv Interview
+	var stageID sql.NullInt64
+	var interviewDate sql.NullTime
+	var interviewer, meetingLink, feedback, outcome, calEventID, calEventLink sql.NullString
+	var createdAt time.Time
+	err := db.QueryRow(`
+		SELECT id, candidate_id, stage_id, interviewer, interview_date, meeting_link, feedback, outcome, created_at,
+		       COALESCE(calendar_event_id, ''), COALESCE(calendar_event_link, '')
+		FROM interviews WHERE id=$1
+	`, id).Scan(&iv.ID, &iv.CandidateID, &stageID, &interviewer, &interviewDate, &meetingLink, &feedback, &outcome, &createdAt, &calEventID, &calEventLink)
+	if err != nil {
+		return nil, err
+	}
+	if stageID.Valid {
+		v := int(stageID.Int64)
+		iv.StageID = &v
+	}
+	iv.Interviewer = interviewer.String
+	iv.MeetingLink = meetingLink.String
+	iv.Feedback = feedback.String
+	iv.Outcome = outcome.String
+	iv.CalendarEventID = calEventID.String
+	iv.CalendarEventLink = calEventLink.String
+	iv.CreatedAt = createdAt.Format(time.RFC3339)
+	if interviewDate.Valid {
+		s := interviewDate.Time.Format(time.RFC3339)
+		iv.InterviewDate = &s
+	}
+	return &iv, nil
+}
+
+func GetCandidateEmail(db *sql.DB, applicationID int) (string, error) {
+	var email sql.NullString
+	err := db.QueryRow(`SELECT email FROM application WHERE id=$1`, applicationID).Scan(&email)
+	return email.String, err
 }
 
 func UpdateApplicationWithResumeData(db *sql.DB, driveFileID string, firstName string, middleName string, lastName string, phoneNumber string, email string, hasGithub bool, experienceYears int) error {

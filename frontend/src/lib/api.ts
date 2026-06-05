@@ -11,6 +11,8 @@ export interface Resume {
   phone: string;
   has_github: boolean;
   experience_years: number;
+  current_ctc: string;
+  expected_ctc: string;
   stage: string;
   role: string;
   uploaded_time: string;
@@ -31,6 +33,8 @@ export interface Interview {
   feedback: string;
   outcome: string;
   created_at: string;
+  calendar_event_id?: string;
+  calendar_event_link?: string;
 }
 
 export interface Note {
@@ -147,7 +151,7 @@ export async function getResume(id: number): Promise<Resume> {
 
 export async function updateResume(
   id: number,
-  data: { first_name: string; middle_name: string; last_name: string; email: string; phone: string }
+  data: { first_name: string; middle_name: string; last_name: string; email: string; phone: string; current_ctc: string; expected_ctc: string }
 ): Promise<void> {
   await fetchJSON(`${BASE_URL}/resume/${id}`, {
     method: 'PUT',
@@ -242,6 +246,13 @@ export async function getInterviews(candidateId: number): Promise<Interview[]> {
   return fetchJSON(`${BASE_URL}/resume/${candidateId}/interviews`);
 }
 
+export interface CreateInterviewResponse {
+  id: number;
+  meet_link?: string;
+  calendar_event_link?: string;
+  calendar_warning?: string;
+}
+
 export async function createInterview(
   candidateId: number,
   data: {
@@ -251,9 +262,19 @@ export async function createInterview(
     feedback: string;
     outcome: string;
   }
-): Promise<Interview> {
+): Promise<CreateInterviewResponse> {
   return fetchJSON(`${BASE_URL}/resume/${candidateId}/interviews`, {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateInterview(
+  id: number,
+  data: { interviewer: string; interview_date: string; outcome: string; feedback: string; meeting_link: string }
+): Promise<void> {
+  await fetchJSON(`${BASE_URL}/interview/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 }
@@ -292,6 +313,8 @@ export interface User {
   name: string;
   picture: string;
   role: 'admin' | 'user';
+  approved: boolean;
+  is_super_admin?: boolean;
 }
 
 export async function getMe(): Promise<User> {
@@ -306,4 +329,34 @@ export function getGoogleLoginUrl(): string {
   // BASE_URL may be http://localhost:8080/api/v1 — strip the /api/v1 suffix if present
   const serverRoot = BASE_URL.replace(/\/api\/v1$/, '');
   return `${serverRoot}/api/v1/auth/google`;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string;
+  picture: string;
+  role: 'admin' | 'user';
+  approved: boolean;
+  is_super_admin: boolean;
+}
+
+export async function getUsers(): Promise<AdminUser[]> {
+  return fetchJSON(`${BASE_URL}/users`);
+}
+
+export async function updateUserApproved(id: number, approved: boolean): Promise<void> {
+  await fetchJSON(`${BASE_URL}/users/${id}/approved`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ approved }),
+  });
+}
+
+export async function updateUserRole(id: number, role: 'admin' | 'user'): Promise<void> {
+  await fetchJSON(`${BASE_URL}/users/${id}/role`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
 }

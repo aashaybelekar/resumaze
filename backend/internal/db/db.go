@@ -50,6 +50,8 @@ func InitDB(db *sql.DB) error {
 		email TEXT,
 		has_github BOOLEAN DEFAULT FALSE,
 		experience_years INT DEFAULT 0,
+		current_ctc TEXT,
+		expected_ctc TEXT,
 		uploaded_time TIMESTAMP DEFAULT NOW(),
 		uploaded_by TEXT,
 		last_change_time TIMESTAMP DEFAULT NOW(),
@@ -93,6 +95,7 @@ func InitDB(db *sql.DB) error {
 		name TEXT NOT NULL,
 		picture TEXT,
 		role TEXT NOT NULL DEFAULT 'user',
+		approved BOOLEAN NOT NULL DEFAULT false,
 		created_at TIMESTAMP DEFAULT NOW()
 	);
 
@@ -103,6 +106,14 @@ func InitDB(db *sql.DB) error {
 		expires_at TIMESTAMP NOT NULL,
 		created_at TIMESTAMP DEFAULT NOW()
 	);
+
+	CREATE TABLE IF NOT EXISTS user_google_tokens (
+		user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+		access_token TEXT NOT NULL,
+		refresh_token TEXT,
+		expiry TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT NOW()
+	);
 	`
 
 	_, err = db.Exec(schema)
@@ -111,7 +122,7 @@ func InitDB(db *sql.DB) error {
 	}
 
 	fmt.Println("INFO: Schema initialized successfully.")
-	return nil
+	return runMigrations(db)
 }
 
 func runMigrations(db *sql.DB) error {
@@ -184,6 +195,47 @@ func runMigrations(db *sql.DB) error {
 				expires_at TIMESTAMP NOT NULL,
 				created_at TIMESTAMP DEFAULT NOW()
 			)`,
+		},
+		{
+			name:  "add approved to users",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='users' AND column_name='approved')`,
+			apply: `ALTER TABLE users ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT false; UPDATE users SET approved = true`,
+		},
+		{
+			name:  "add current_ctc to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='current_ctc')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS current_ctc TEXT`,
+		},
+		{
+			name:  "add expected_ctc to application",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='expected_ctc')`,
+			apply: `ALTER TABLE application ADD COLUMN IF NOT EXISTS expected_ctc TEXT`,
+		},
+		{
+			name:  "convert expected_ctc to text",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='application' AND column_name='expected_ctc' AND data_type='text')`,
+			apply: `ALTER TABLE application ALTER COLUMN expected_ctc TYPE TEXT USING expected_ctc::TEXT`,
+		},
+		{
+			name:  "create user_google_tokens table",
+			check: `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='user_google_tokens')`,
+			apply: `CREATE TABLE IF NOT EXISTS user_google_tokens (
+				user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+				access_token TEXT NOT NULL,
+				refresh_token TEXT,
+				expiry TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT NOW()
+			)`,
+		},
+		{
+			name:  "add calendar_event_id to interviews",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='interviews' AND column_name='calendar_event_id')`,
+			apply: `ALTER TABLE interviews ADD COLUMN IF NOT EXISTS calendar_event_id TEXT`,
+		},
+		{
+			name:  "add calendar_event_link to interviews",
+			check: `SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name='interviews' AND column_name='calendar_event_link')`,
+			apply: `ALTER TABLE interviews ADD COLUMN IF NOT EXISTS calendar_event_link TEXT`,
 		},
 	}
 

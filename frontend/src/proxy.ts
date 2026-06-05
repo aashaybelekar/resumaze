@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const accessToken = request.cookies.get('access_token');
   const refreshToken = request.cookies.get('refresh_token');
   const { pathname } = request.nextUrl;

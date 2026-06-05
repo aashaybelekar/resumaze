@@ -31,8 +31,15 @@ func RequireAuth(database *sql.DB) gin.HandlerFunc {
 		if err == nil {
 			claims, err := ParseToken(accessToken)
 			if err == nil {
-				c.Set("user_id", claims.UserID)
-				c.Set("role", claims.Role)
+				// Always fetch from DB so role/approved changes take effect immediately
+				user, err := dbpkg.GetUserByID(database, claims.UserID)
+				if err != nil {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+					return
+				}
+				c.Set("user_id", user.ID)
+				c.Set("role", user.Role)
+				c.Set("approved", user.Approved)
 				c.Next()
 				return
 			}
@@ -59,13 +66,13 @@ func RequireAuth(database *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		newAccess, err := CreateAccessToken(user.ID, user.Role)
+		newAccess, err := CreateAccessToken(user.ID, user.Role, user.Approved)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "token error"})
 			return
 		}
 
-		newRefresh, refreshExpiry, err := CreateRefreshToken(user.ID, user.Role)
+		newRefresh, refreshExpiry, err := CreateRefreshToken(user.ID, user.Role, user.Approved)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "token error"})
 			return
@@ -77,6 +84,18 @@ func RequireAuth(database *sql.DB) gin.HandlerFunc {
 
 		c.Set("user_id", user.ID)
 		c.Set("role", user.Role)
+		c.Set("approved", user.Approved)
+		c.Next()
+	}
+}
+
+func RequireApproved() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		approved, exists := c.Get("approved")
+		if !exists || approved != true {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access pending approval"})
+			return
+		}
 		c.Next()
 	}
 }

@@ -8,8 +8,9 @@ import (
 )
 
 type Claims struct {
-	UserID int    `json:"user_id"`
-	Role   string `json:"role"`
+	UserID   int    `json:"user_id"`
+	Role     string `json:"role"`
+	Approved bool   `json:"approved"`
 	jwt.RegisteredClaims
 }
 
@@ -17,10 +18,11 @@ func jwtSecret() []byte {
 	return []byte(os.Getenv("JWT_SECRET"))
 }
 
-func CreateAccessToken(userID int, role string) (string, error) {
+func CreateAccessToken(userID int, role string, approved bool) (string, error) {
 	claims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:   userID,
+		Role:     role,
+		Approved: approved,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -29,11 +31,12 @@ func CreateAccessToken(userID int, role string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtSecret())
 }
 
-func CreateRefreshToken(userID int, role string) (string, time.Time, error) {
+func CreateRefreshToken(userID int, role string, approved bool) (string, time.Time, error) {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
 	claims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:   userID,
+		Role:     role,
+		Approved: approved,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

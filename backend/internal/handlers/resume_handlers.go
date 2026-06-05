@@ -148,17 +148,19 @@ func UpdateResumeDetailsHandler(c *gin.Context, dbClient *sql.DB) {
 		return
 	}
 	var req struct {
-		FirstName  string `json:"first_name"`
-		MiddleName string `json:"middle_name"`
-		LastName   string `json:"last_name"`
-		Email      string `json:"email"`
-		Phone      string `json:"phone"`
+		FirstName   string `json:"first_name"`
+		MiddleName  string `json:"middle_name"`
+		LastName    string `json:"last_name"`
+		Email       string `json:"email"`
+		Phone       string `json:"phone"`
+		CurrentCTC  string `json:"current_ctc"`
+		ExpectedCTC string `json:"expected_ctc"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
 		return
 	}
-	if err := db.UpdateApplicationDetails(dbClient, id, req.FirstName, req.MiddleName, req.LastName, req.Email, req.Phone); err != nil {
+	if err := db.UpdateApplicationDetails(dbClient, id, req.FirstName, req.MiddleName, req.LastName, req.Email, req.Phone, req.CurrentCTC, req.ExpectedCTC); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -8,7 +8,6 @@ import {
   Users,
   Upload,
   BarChart3,
-  Settings,
   Briefcase,
   Circle,
   Archive,
@@ -17,13 +16,11 @@ import {
 import { checkHealth, logout } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
-const navItems = [
+const baseNavItems = [
   { href: '/pipeline', label: 'Pipeline', icon: LayoutDashboard },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/upload', label: 'Upload', icon: Upload },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/admin', label: 'Admin', icon: Archive },
 ];
 
 export default function Sidebar() {
@@ -66,7 +63,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {[...baseNavItems, ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Archive }] : [])].map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href === '/pipeline' && pathname === '/');
           return (
             <Link
